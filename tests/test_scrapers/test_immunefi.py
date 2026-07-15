@@ -1,7 +1,6 @@
 """Tests for the Immunefi scraper."""
 from src.scrapers.immunefi import ImmunefiScraper
 
-
 # Sample HTML mimicking Immunefi's Next.js __NEXT_DATA__ format.
 # Real Immunefi pages embed JSON with escaped quotes: \"key\":\"value\"
 # This test HTML replicates that format.

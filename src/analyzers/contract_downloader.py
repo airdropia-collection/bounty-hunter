@@ -9,11 +9,9 @@ Caches downloads to avoid re-fetching.
 """
 from __future__ import annotations
 
-import base64
 import os
 import re
 from pathlib import Path
-from typing import List, Optional
 
 from src.utils.logger import get_logger
 from src.utils.retry import retry_network
@@ -26,11 +24,11 @@ CACHE_DIR = Path("cache/contracts")
 class ContractDownloader:
     """Downloads Solidity source code from GitHub or Etherscan."""
 
-    def __init__(self, etherscan_api_key: Optional[str] = None):
+    def __init__(self, etherscan_api_key: str | None = None):
         self.etherscan_key = etherscan_api_key or os.getenv("ETHERSCAN_API_KEY", "")
         CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
-    def download(self, source_url: str) -> Optional[str]:
+    def download(self, source_url: str) -> str | None:
         """Download contract source. Returns source code or None."""
         # Check cache first
         cache_key = self._cache_key(source_url)
@@ -63,7 +61,7 @@ class ContractDownloader:
         return source
 
     @retry_network(max_attempts=2, base_delay=1.0, max_delay=5.0)
-    def _download_github(self, url: str) -> Optional[str]:
+    def _download_github(self, url: str) -> str | None:
         """Download from GitHub repo. Returns concatenated .sol files."""
         import httpx
 
@@ -124,7 +122,7 @@ class ContractDownloader:
         return "\n\n".join(sources) if sources else None
 
     @retry_network(max_attempts=2, base_delay=1.0, max_delay=5.0)
-    def _download_etherscan(self, address: str) -> Optional[str]:
+    def _download_etherscan(self, address: str) -> str | None:
         """Download verified contract source from Etherscan."""
         if not self.etherscan_key:
             log.warning("no ETHERSCAN_API_KEY — can't fetch contract source")

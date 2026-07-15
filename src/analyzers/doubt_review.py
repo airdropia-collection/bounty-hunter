@@ -14,7 +14,6 @@ Process: CLAIM → EXTRACT → DOUBT → RECONCILE → STOP
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List
 
 from src.analyzers.ai_helper import get_ai_helper
 from src.analyzers.vuln_detector import Finding
@@ -144,9 +143,9 @@ class DoubtReviewer:
 
     def review_many(
         self,
-        findings: List[Finding],
+        findings: list[Finding],
         source_code: str = "",
-    ) -> List[ReviewedFinding]:
+    ) -> list[ReviewedFinding]:
         """Review multiple findings. Returns ReviewedFinding list."""
         results = []
         for finding in findings:
@@ -158,6 +157,6 @@ class DoubtReviewer:
             )
         return results
 
-    def filter_submittable(self, reviewed: List[ReviewedFinding]) -> List[ReviewedFinding]:
+    def filter_submittable(self, reviewed: list[ReviewedFinding]) -> list[ReviewedFinding]:
         """Return only findings recommended for submission."""
         return [r for r in reviewed if r.recommendation == "submit"]

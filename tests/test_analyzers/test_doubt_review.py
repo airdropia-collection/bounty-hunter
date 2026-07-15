@@ -1,6 +1,6 @@
 """Tests for the doubt reviewer."""
-from src.analyzers.vuln_detector import Finding
 from src.analyzers.doubt_review import DoubtReviewer, ReviewedFinding
+from src.analyzers.vuln_detector import Finding
 
 
 def test_reviewed_finding_creation():
@@ -40,7 +40,6 @@ def test_reviewed_finding_to_dict():
 
 
 def test_filter_submittable():
-    from unittest.mock import MagicMock
     reviewer = DoubtReviewer()
 
     f1 = Finding(id="1", title="A", severity="High", confidence=0.8,

@@ -1,8 +1,8 @@
 """Platform scrapers for bug bounty listings."""
 
 from .base import BaseScraper, Bounty
-from .immunefi import ImmunefiScraper
 from .code4rena import Code4renaScraper
+from .immunefi import ImmunefiScraper
 from .sherlock import SherlockScraper
 
 __all__ = [

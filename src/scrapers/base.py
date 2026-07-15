@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import json
 from abc import ABC, abstractmethod
-from datetime import datetime, timezone
 from dataclasses import asdict, dataclass, field
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from src.utils.logger import get_logger
 from src.utils.retry import retry_network
@@ -27,16 +27,16 @@ class Bounty:
     project_name: str
     description: str
     max_payout_usd: int               # highest tier payout in USD
-    severity_levels: List[str]        # ["critical", "high", ...]
-    tech_stack: List[str]             # ["solidity", "foundry", ...]
-    source_urls: List[str]            # GitHub repos / contract addresses
+    severity_levels: list[str]        # ["critical", "high", ...]
+    tech_stack: list[str]             # ["solidity", "foundry", ...]
+    source_urls: list[str]            # GitHub repos / contract addresses
     url: str                          # bounty listing URL
-    deadline: Optional[str] = None    # ISO date or None
+    deadline: str | None = None    # ISO date or None
     status: str = "active"            # "active" | "ending_soon" | "ended"
-    tags: List[str] = field(default_factory=list)
-    scraped_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    tags: list[str] = field(default_factory=list)
+    scraped_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
     @property
@@ -56,7 +56,7 @@ class BaseScraper(ABC):
         self.log = get_logger(f"scrapers.{self.PLATFORM_NAME}")
 
     @abstractmethod
-    def scrape(self) -> List[Bounty]:
+    def scrape(self) -> list[Bounty]:
         """Scrape bounties from the platform. Returns list of Bounty objects."""
         pass
 
@@ -64,7 +64,7 @@ class BaseScraper(ABC):
     # HTTP helper (sync, with retry)
     # ------------------------------------------------------------------ #
     @retry_network(max_attempts=3, base_delay=1.0, max_delay=5.0)
-    def _fetch_html(self, url: str, headers: Optional[Dict] = None) -> str:
+    def _fetch_html(self, url: str, headers: dict | None = None) -> str:
         """Fetch HTML from URL with retry. Returns empty string on failure."""
         import httpx
 
@@ -84,7 +84,7 @@ class BaseScraper(ABC):
         return resp.text
 
     @retry_network(max_attempts=3, base_delay=1.0, max_delay=5.0)
-    def _fetch_json(self, url: str, headers: Optional[Dict] = None) -> Any:
+    def _fetch_json(self, url: str, headers: dict | None = None) -> Any:
         """Fetch JSON from URL with retry."""
         import httpx
 
@@ -114,7 +114,7 @@ class BaseScraper(ABC):
         self.log.debug("saved raw HTML to %s", path)
         return path
 
-    def save_bounties(self, bounties: List[Bounty]) -> Path:
+    def save_bounties(self, bounties: list[Bounty]) -> Path:
         """Save scraped bounties to state/bounties_<platform>.json."""
         state_dir = Path("state")
         state_dir.mkdir(parents=True, exist_ok=True)

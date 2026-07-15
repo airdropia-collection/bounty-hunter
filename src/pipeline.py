@@ -15,21 +15,21 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
-from src.config import CONFIG
-from src.scrapers.immunefi import ImmunefiScraper
-from src.scrapers.code4rena import Code4renaScraper
-from src.scrapers.sherlock import SherlockScraper
-from src.scrapers.base import Bounty
 from src.analyzers.contract_downloader import ContractDownloader
-from src.analyzers.vuln_detector import VulnerabilityDetector
 from src.analyzers.doubt_review import DoubtReviewer
+from src.analyzers.vuln_detector import VulnerabilityDetector
+from src.config import CONFIG
+from src.scrapers.base import Bounty
+from src.scrapers.code4rena import Code4renaScraper
+from src.scrapers.immunefi import ImmunefiScraper
+from src.scrapers.sherlock import SherlockScraper
+from src.utils.github_client import GitHubClient
 from src.utils.logger import get_logger, silence_noisy_libs
 from src.utils.state import State
-from src.utils.github_client import GitHubClient
 
 log = get_logger("pipeline")
 
@@ -40,7 +40,7 @@ SCRAPER_MAP = {
 }
 
 
-def scrape_platform(platform_name: str, max_bounties: int = 10) -> List[Bounty]:
+def scrape_platform(platform_name: str, max_bounties: int = 10) -> list[Bounty]:
     """Scrape bounties from a single platform."""
     scraper_class = SCRAPER_MAP.get(platform_name)
     if not scraper_class:
@@ -60,9 +60,9 @@ def scrape_platform(platform_name: str, max_bounties: int = 10) -> List[Bounty]:
         return []
 
 
-def scrape_all(max_per_platform: int = 10) -> List[Bounty]:
+def scrape_all(max_per_platform: int = 10) -> list[Bounty]:
     """Scrape bounties from all platforms."""
-    all_bounties: List[Bounty] = []
+    all_bounties: list[Bounty] = []
     for platform_name in SCRAPER_MAP:
         bounties = scrape_platform(platform_name, max_per_platform)
         all_bounties.extend(bounties)
@@ -70,7 +70,7 @@ def scrape_all(max_per_platform: int = 10) -> List[Bounty]:
     return all_bounties
 
 
-def deduplicate(bounties: List[Bounty]) -> List[Bounty]:
+def deduplicate(bounties: list[Bounty]) -> list[Bounty]:
     """Filter out bounties we've already seen."""
     state = State("bounties_seen", ttl_hours=24 * 7)
     state.prune()
@@ -82,12 +82,12 @@ def deduplicate(bounties: List[Bounty]) -> List[Bounty]:
     return fresh
 
 
-def analyze_bounty(bounty: Bounty) -> Dict[str, Any]:
+def analyze_bounty(bounty: Bounty) -> dict[str, Any]:
     """Download source code and run AI vulnerability analysis on a bounty.
 
     Returns dict with findings + doubt review results.
     """
-    result: Dict[str, Any] = {
+    result: dict[str, Any] = {
         "bounty": bounty.to_dict(),
         "source_downloaded": False,
         "source_chars": 0,
@@ -139,7 +139,7 @@ def analyze_bounty(bounty: Bounty) -> Dict[str, Any]:
     return result
 
 
-def create_finding_issues(analysis_results: List[Dict[str, Any]], gh: GitHubClient) -> int:
+def create_finding_issues(analysis_results: list[dict[str, Any]], gh: GitHubClient) -> int:
     """Create GitHub Issues for submittable findings. Returns count created."""
     issues_created = 0
 
@@ -189,7 +189,7 @@ def create_finding_issues(analysis_results: List[Dict[str, Any]], gh: GitHubClie
             "- `/modify <instructions>` — request re-analysis with notes",
             "",
             "---",
-            f"*Analyzed at: {datetime.now(timezone.utc).isoformat()}*",
+            f"*Analyzed at: {datetime.now(UTC).isoformat()}*",
         ])
 
         issue = gh.create_issue(
@@ -203,12 +203,12 @@ def create_finding_issues(analysis_results: List[Dict[str, Any]], gh: GitHubClie
     return issues_created
 
 
-def save_summary(bounties: List[Bounty], analysis_results: List[Dict[str, Any]]) -> Path:
+def save_summary(bounties: list[Bounty], analysis_results: list[dict[str, Any]]) -> Path:
     """Save summary JSON for this run."""
     state_dir = Path("state")
     state_dir.mkdir(parents=True, exist_ok=True)
     summary = {
-        "run_at": datetime.now(timezone.utc).isoformat(),
+        "run_at": datetime.now(UTC).isoformat(),
         "total_bounties": len(bounties),
         "analyzed": len(analysis_results),
         "total_findings": sum(len(r["findings"]) for r in analysis_results),
@@ -225,7 +225,7 @@ def save_summary(bounties: List[Bounty], analysis_results: List[Dict[str, Any]])
     return path
 
 
-def notify_operator_if_needed(bounties: List[Bounty]) -> None:
+def notify_operator_if_needed(bounties: list[Bounty]) -> None:
     """If we found high-value bounties, create a GitHub Issue summary."""
     if not bounties:
         return
@@ -240,7 +240,7 @@ def notify_operator_if_needed(bounties: List[Bounty]) -> None:
         log.info("no high-value bounties (>= $10k) — skipping notification")
         return
 
-    lines = [f"## 🎯 Pipeline Run Summary\n"]
+    lines = ["## 🎯 Pipeline Run Summary\n"]
     lines.append(f"**Total bounties found:** {len(bounties)}\n")
     lines.append(f"**High-value (>= $10k):** {len(high_value)}\n\n")
     lines.append("### Top 10 Bounties\n")
@@ -248,7 +248,7 @@ def notify_operator_if_needed(bounties: List[Bounty]) -> None:
     lines.append("|---|----------|---------|------------|-----|")
     for i, b in enumerate(bounties[:10], 1):
         lines.append(f"| {i} | {b.platform} | {b.project_name} | ${b.max_payout_usd:,} | [link]({b.url}) |")
-    lines.append(f"\n---\n*Run time: {datetime.now(timezone.utc).isoformat()}*")
+    lines.append(f"\n---\n*Run time: {datetime.now(UTC).isoformat()}*")
 
     gh.create_issue(
         title=f"🎯 Pipeline: {len(bounties)} bounties found ({len(high_value)} high-value)",
@@ -294,7 +294,7 @@ def main() -> int:
     fresh_bounties = deduplicate(bounties)
 
     # 3. AI Analysis (optional)
-    analysis_results: List[Dict[str, Any]] = []
+    analysis_results: list[dict[str, Any]] = []
     if not args.skip_analysis and fresh_bounties:
         log.info("=== Starting AI Analysis ===")
         for bounty in fresh_bounties:

@@ -13,7 +13,6 @@ text ($X,XXX) in the HTML, not in the JSON.
 from __future__ import annotations
 
 import re
-from typing import List
 
 from src.scrapers.base import BaseScraper, Bounty
 from src.utils.logger import get_logger
@@ -28,7 +27,7 @@ class Code4renaScraper(BaseScraper):
     BASE_URL = "https://code4rena.com"
     CONTESTS_URL = "https://code4rena.com/contests"
 
-    def scrape(self) -> List[Bounty]:
+    def scrape(self) -> list[Bounty]:
         """Scrape Code4rana contests."""
         self.log.info("scraping Code4rana contests page...")
         try:
@@ -41,7 +40,7 @@ class Code4renaScraper(BaseScraper):
             self.log.error("Code4rena scrape failed: %s", exc)
             return []
 
-    def _parse_contests(self, html: str) -> List[Bounty]:
+    def _parse_contests(self, html: str) -> list[Bounty]:
         """Parse Code4rana contest data from HTML.
 
         Code4rena embeds data in Next.js __NEXT_DATA__ with escaped JSON.
@@ -51,7 +50,7 @@ class Code4renaScraper(BaseScraper):
         - repo (from JSON: \"repo\":\"https://github.com/code-423n4/...\")
         - amount (from visible text: $135,000)
         """
-        bounties: List[Bounty] = []
+        bounties: list[Bounty] = []
 
         # Extract from escaped JSON
         titles = re.findall(r'\\"title\\":\\"([^\\]+)\\"', html)
@@ -81,7 +80,7 @@ class Code4renaScraper(BaseScraper):
                     pass
 
             # Parse repo URL
-            source_urls: List[str] = []
+            source_urls: list[str] = []
             if i < len(repos) and repos[i]:
                 source_urls.append(repos[i])
 

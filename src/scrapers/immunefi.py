@@ -14,9 +14,7 @@ Data extracted per bounty:
 """
 from __future__ import annotations
 
-import json
 import re
-from typing import Any, Dict, List
 
 from src.scrapers.base import BaseScraper, Bounty
 from src.utils.logger import get_logger
@@ -31,7 +29,7 @@ class ImmunefiScraper(BaseScraper):
     BASE_URL = "https://immunefi.com"
     EXPLORE_URL = "https://immunefi.com/explore/"
 
-    def scrape(self) -> List[Bounty]:
+    def scrape(self) -> list[Bounty]:
         """Scrape all Immunefi bounties from the explore page."""
         self.log.info("scraping Immunefi explore page...")
         try:
@@ -44,14 +42,14 @@ class ImmunefiScraper(BaseScraper):
             self.log.error("Immunefi scrape failed: %s", exc)
             return []
 
-    def _parse_bounties(self, html: str) -> List[Bounty]:
+    def _parse_bounties(self, html: str) -> list[Bounty]:
         """Parse bounty data from Immunefi explore page HTML.
 
         Immunefi uses Next.js SSR. All bounty data is embedded in a
         <script id="__NEXT_DATA__"> tag as JSON. We extract individual
         fields using regex (faster than parsing the full JSON tree).
         """
-        bounties: List[Bounty] = []
+        bounties: list[Bounty] = []
 
         # Extract fields using regex on the escaped JSON
         # Immunefi embeds data as: \"project\":\"Name\" with optional whitespace
@@ -85,7 +83,7 @@ class ImmunefiScraper(BaseScraper):
             max_payout = int(maxes[i])
 
             # Parse technologies if available
-            tech_stack: List[str] = []
+            tech_stack: list[str] = []
             if i < len(techs_raw) and techs_raw[i]:
                 # Extract technology names from the raw string
                 tech_stack = re.findall(r'\\"([^\\]+)\\"', techs_raw[i])
@@ -112,6 +110,6 @@ class ImmunefiScraper(BaseScraper):
 
         return bounties
 
-    def filter_by_payout(self, bounties: List[Bounty], min_usd: int = 500) -> List[Bounty]:
+    def filter_by_payout(self, bounties: list[Bounty], min_usd: int = 500) -> list[Bounty]:
         """Filter bounties by minimum payout."""
         return [b for b in bounties if b.max_payout_usd >= min_usd]

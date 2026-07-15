@@ -23,7 +23,6 @@ def test_download_unknown_source_type():
 
 def test_download_caches_results(tmp_path, monkeypatch):
     """Downloaded source should be cached for re-use."""
-    import os
     monkeypatch.setattr("src.analyzers.contract_downloader.CACHE_DIR", tmp_path / "contracts")
     dl = ContractDownloader(etherscan_api_key="")
 

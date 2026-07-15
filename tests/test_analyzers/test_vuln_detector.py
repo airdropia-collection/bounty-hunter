@@ -50,7 +50,6 @@ def test_finding_defaults():
 
 def test_detector_empty_source():
     """Empty source code should return no findings."""
-    from unittest.mock import patch, MagicMock
     detector = VulnerabilityDetector()
     # Empty source
     findings = detector.analyze("", "test")

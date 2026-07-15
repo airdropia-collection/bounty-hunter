@@ -2,8 +2,8 @@
 
 from .ai_helper import AIHelper, get_ai_helper
 from .contract_downloader import ContractDownloader
-from .vuln_detector import Finding, VulnerabilityDetector
 from .doubt_review import DoubtReviewer, ReviewedFinding
+from .vuln_detector import Finding, VulnerabilityDetector
 
 __all__ = [
     "AIHelper",

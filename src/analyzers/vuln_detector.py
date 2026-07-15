@@ -11,7 +11,7 @@ Registry and common Web3 vulnerability patterns.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from src.analyzers.ai_helper import get_ai_helper
 from src.utils.logger import get_logger
@@ -29,11 +29,11 @@ class Finding:
     description: str
     impact: str
     recommendation: str
-    line_numbers: List[str] = field(default_factory=list)
+    line_numbers: list[str] = field(default_factory=list)
     poc_suggestion: str = ""
     swc_id: str = ""  # SWC registry ID if applicable
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "title": self.title,
@@ -115,7 +115,7 @@ class VulnerabilityDetector:
         self.ai = get_ai_helper()
         self.max_code_chars = max_code_chars
 
-    def analyze(self, source_code: str, project_name: str = "") -> List[Finding]:
+    def analyze(self, source_code: str, project_name: str = "") -> list[Finding]:
         """Analyze Solidity source code for vulnerabilities.
 
         Args:

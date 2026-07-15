@@ -20,7 +20,7 @@ from __future__ import annotations
 import json
 import os
 import time
-from typing import Any, Dict, Optional
+from typing import Any
 
 from src.utils.logger import get_logger
 from src.utils.sanitizer import sanitize
@@ -77,7 +77,7 @@ class AIHelper:
     def generate(
         self,
         prompt: str,
-        system: Optional[str] = None,
+        system: str | None = None,
         json_mode: bool = False,
         max_retries: int = 3,
     ) -> str:
@@ -109,9 +109,9 @@ class AIHelper:
     def generate_json(
         self,
         prompt: str,
-        system: Optional[str] = None,
+        system: str | None = None,
         max_retries: int = 3,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Generate AI response and parse as JSON."""
         result = self.generate(prompt, system, json_mode=True, max_retries=max_retries)
         # Strip markdown code fences if present
@@ -119,31 +119,31 @@ class AIHelper:
         if result.startswith("```"):
             lines = result.split("\n")
             # Remove first and last lines (```json ... ```)
-            lines = [l for l in lines if not l.strip().startswith("```")]
+            lines = [ln for ln in lines if not ln.strip().startswith("```")]
             result = "\n".join(lines)
         return json.loads(result)
 
     # ------------------------------------------------------------------ #
     # Provider calls
     # ------------------------------------------------------------------ #
-    def _call_gemini(self, prompt: str, system: Optional[str], json_mode: bool) -> str:
+    def _call_gemini(self, prompt: str, system: str | None, json_mode: bool) -> str:
         if not self._genai:
             raise RuntimeError("Gemini module not initialized")
         full_prompt = f"{system}\n\n{prompt}" if system else prompt
-        kwargs: Dict[str, Any] = {"temperature": 0.3, "max_output_tokens": 8192}
+        kwargs: dict[str, Any] = {"temperature": 0.3, "max_output_tokens": 8192}
         if json_mode:
             kwargs["response_mime_type"] = "application/json"
         config = self._genai.GenerationConfig(**kwargs)
         response = self.gemini.generate_content(full_prompt, generation_config=config)
         return response.text
 
-    def _call_groq(self, prompt: str, system: Optional[str], json_mode: bool) -> str:
+    def _call_groq(self, prompt: str, system: str | None, json_mode: bool) -> str:
         messages = []
         if system:
             messages.append({"role": "system", "content": system})
         messages.append({"role": "user", "content": prompt})
 
-        kwargs: Dict[str, Any] = {
+        kwargs: dict[str, Any] = {
             "model": "llama-3.1-70b-versatile",
             "messages": messages,
             "temperature": 0.3,
@@ -157,7 +157,7 @@ class AIHelper:
 
 
 # Singleton
-_ai_helper: Optional[AIHelper] = None
+_ai_helper: AIHelper | None = None
 
 
 def get_ai_helper() -> AIHelper:

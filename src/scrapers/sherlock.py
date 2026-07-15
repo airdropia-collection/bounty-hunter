@@ -13,7 +13,6 @@ Data source: https://audits.sherlock.xyz/bug-bounties
 from __future__ import annotations
 
 import re
-from typing import List
 
 from src.scrapers.base import BaseScraper, Bounty
 from src.utils.logger import get_logger
@@ -28,7 +27,7 @@ class SherlockScraper(BaseScraper):
     BASE_URL = "https://audits.sherlock.xyz"
     BUG_BOUNTIES_URL = "https://audits.sherlock.xyz/bug-bounties"
 
-    def scrape(self) -> List[Bounty]:
+    def scrape(self) -> list[Bounty]:
         """Scrape Sherlock bug bounties."""
         self.log.info("scraping Sherlock bug-bounties page...")
         try:
@@ -41,14 +40,14 @@ class SherlockScraper(BaseScraper):
             self.log.error("Sherlock scrape failed: %s", exc)
             return []
 
-    def _parse_bug_bounties(self, html: str) -> List[Bounty]:
+    def _parse_bug_bounties(self, html: str) -> list[Bounty]:
         """Parse Sherlock bug bounty data from HTML.
 
         Sherlock's bug-bounties page lists links to /bug-bounties/<id>.
         Each ID corresponds to a project. We extract the IDs and
         construct bounty URLs.
         """
-        bounties: List[Bounty] = []
+        bounties: list[Bounty] = []
 
         # Find all bug-bounty links: href="/bug-bounties/<id>"
         # The ID is usually a number
