@@ -37,6 +37,18 @@ class AIHelper:
         self._genai = None  # cached google.generativeai module
         self._init_clients()
 
+    # Gemini model priority (user-confirmed):
+    # 3.5-flash → 3.1-flash → 2.5-flash (all have 1M tok/day free)
+    # 2.0-flash and 1.5-flash as last-resort fallbacks
+    GEMINI_MODELS = [
+        "gemini-3.5-flash",
+        "gemini-3.1-flash",
+        "gemini-2.5-flash",
+        "gemini-2.0-flash",
+        "gemini-1.5-flash",
+        "gemini-1.5-flash-latest",
+    ]
+
     def _init_clients(self):
         """Initialize AI clients (lazy imports for optional deps)."""
         # Gemini
@@ -46,17 +58,12 @@ class AIHelper:
                 import google.generativeai as genai
 
                 genai.configure(api_key=gemini_key)
-                # Try gemini-1.5-flash first (has 1M tok/day free tier),
-                # then 2.0-flash (some accounts have limit:0 on free tier)
-                for model_name in ("gemini-1.5-flash", "gemini-1.5-flash-latest", "gemini-2.0-flash"):
-                    try:
-                        self.gemini = genai.GenerativeModel(model_name)
-                        self._genai = genai
-                        self._gemini_model = model_name
-                        log.info("Gemini client initialized (model=%s)", model_name)
-                        break
-                    except Exception:
-                        continue
+                self._genai = genai
+                # Don't pick a model yet — we'll try each on first call
+                # and remember which one works
+                self._gemini_model = None
+                self._gemini_failed_models: set = set()
+                log.info("Gemini client initialized (will try models on first call)")
             except ImportError:
                 log.warning("google-generativeai not installed; Gemini disabled")
             except Exception as exc:
@@ -80,7 +87,7 @@ class AIHelper:
 
     @property
     def has_any_provider(self) -> bool:
-        return self.gemini is not None or self.groq is not None
+        return self._genai is not None or self.groq is not None
 
     def generate(
         self,
@@ -92,7 +99,7 @@ class AIHelper:
         """Generate AI response with fallback chain: Gemini → Groq → error."""
         errors = []
 
-        if self.gemini:
+        if self._genai:
             for attempt in range(max_retries):
                 try:
                     return self._call_gemini(prompt, system, json_mode)
@@ -135,15 +142,57 @@ class AIHelper:
     # Provider calls
     # ------------------------------------------------------------------ #
     def _call_gemini(self, prompt: str, system: str | None, json_mode: bool) -> str:
+        """Call Gemini, trying multiple models if one fails.
+
+        If we already found a working model, use it directly.
+        If not, try each model in priority order until one works.
+        Models that return 404 (not found) or 429 (quota=0) are
+        remembered as failed so we don't retry them.
+        """
         if not self._genai:
             raise RuntimeError("Gemini module not initialized")
+
         full_prompt = f"{system}\n\n{prompt}" if system else prompt
         kwargs: dict[str, Any] = {"temperature": 0.3, "max_output_tokens": 8192}
         if json_mode:
             kwargs["response_mime_type"] = "application/json"
         config = self._genai.GenerationConfig(**kwargs)
-        response = self.gemini.generate_content(full_prompt, generation_config=config)
-        return response.text
+
+        # If we already have a working model, try it first
+        models_to_try = []
+        if self._gemini_model and self._gemini_model not in self._gemini_failed_models:
+            models_to_try.append(self._gemini_model)
+        # Add remaining models that haven't failed
+        for m in self.GEMINI_MODELS:
+            if m not in models_to_try and m not in self._gemini_failed_models:
+                models_to_try.append(m)
+
+        last_error = None
+        for model_name in models_to_try:
+            try:
+                model = self._genai.GenerativeModel(model_name)
+                response = model.generate_content(full_prompt, generation_config=config)
+                # Success! Remember this model for future calls
+                if self._gemini_model != model_name:
+                    self._gemini_model = model_name
+                    log.info("Gemini using model: %s", model_name)
+                return response.text
+            except Exception as exc:
+                err_str = str(exc)
+                # 404 = model not found, 429 = quota exceeded
+                # Mark these models as permanently failed for this session
+                if "404" in err_str or "not found" in err_str.lower():
+                    self._gemini_failed_models.add(model_name)
+                    log.warning("Gemini model %s not available, trying next", model_name)
+                elif "429" in err_str and "limit: 0" in err_str:
+                    self._gemini_failed_models.add(model_name)
+                    log.warning("Gemini model %s has quota=0, trying next", model_name)
+                else:
+                    # Transient error (rate limit, network) — don't mark as failed
+                    log.warning("Gemini model %s error: %s", model_name, sanitize(exc))
+                last_error = exc
+
+        raise RuntimeError(f"All Gemini models failed. Last error: {sanitize(last_error)}")
 
     def _call_groq(self, prompt: str, system: str | None, json_mode: bool) -> str:
         messages = []

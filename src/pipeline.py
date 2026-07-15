@@ -23,6 +23,8 @@ from src.analyzers.contract_downloader import ContractDownloader
 from src.analyzers.doubt_review import DoubtReviewer
 from src.analyzers.vuln_detector import VulnerabilityDetector
 from src.config import CONFIG
+from src.reporters.drafter import ReportDrafter
+from src.reporters.poc_generator import PoCGenerator
 from src.scrapers.base import Bounty
 from src.scrapers.code4rena import Code4renaScraper
 from src.scrapers.immunefi import ImmunefiScraper
@@ -30,6 +32,7 @@ from src.scrapers.sherlock import SherlockScraper
 from src.utils.github_client import GitHubClient
 from src.utils.logger import get_logger, silence_noisy_libs
 from src.utils.state import State
+from src.utils.telegram import get_notifier
 
 log = get_logger("pipeline")
 
@@ -282,6 +285,10 @@ def main() -> int:
     log.info("platform=%s max=%d dry_run=%s skip_analysis=%s",
              args.platform, args.max_bounties, args.dry_run, args.skip_analysis)
 
+    # 0. Telegram notification: pipeline started
+    tg = get_notifier()
+    tg.send_pipeline_start(args.platform, args.max_bounties)
+
     # 1. Scrape
     if args.platform == "all":
         bounties = scrape_all(args.max_bounties)
@@ -302,13 +309,27 @@ def main() -> int:
             try:
                 result = analyze_bounty(bounty)
                 analysis_results.append(result)
+                # Telegram notification for each finding
+                if result["submittable_count"] > 0:
+                    for f in result.get("reviewed_findings", []):
+                        if f.get("recommendation") == "submit":
+                            orig = f.get("original", {})
+                            tg.send_finding(
+                                project=bounty.project_name,
+                                title=orig.get("title", "Unknown"),
+                                severity=orig.get("severity", "Info"),
+                                confidence=f.get("confidence_adjusted", 0),
+                                url=bounty.url,
+                            )
             except Exception as exc:
                 log.exception("analysis failed for %s: %s", bounty.project_name, exc)
+                tg.send_error(str(exc), context=f"analyzing {bounty.project_name}")
 
     # 4. Save summary
     save_summary(fresh_bounties, analysis_results)
 
     # 5. Create GitHub Issues for findings (only if not dry-run)
+    total_submittable = sum(r["submittable_count"] for r in analysis_results)
     if not args.dry_run and analysis_results:
         gh = GitHubClient()
         if not gh._dry_run:
@@ -326,6 +347,14 @@ def main() -> int:
     # 6. Notify operator about high-value bounties
     if not args.dry_run:
         notify_operator_if_needed(fresh_bounties)
+
+    # 7. Telegram notification: pipeline complete
+    total_findings = sum(len(r["findings"]) for r in analysis_results)
+    tg.send_pipeline_complete(
+        total_bounties=len(fresh_bounties),
+        total_findings=total_findings,
+        submittable=total_submittable,
+    )
 
     log.info("=== Pipeline complete ===")
     return 0
