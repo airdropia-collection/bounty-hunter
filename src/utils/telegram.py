@@ -67,7 +67,16 @@ class TelegramNotifier:
 
         resp = httpx.post(url, json=payload, timeout=15)
         if resp.status_code != 200:
-            log.error("Telegram send failed: %d %s", resp.status_code, resp.text[:200])
+            # Log full error for debugging 403 Forbidden
+            try:
+                err_data = resp.json()
+                err_desc = err_data.get("description", resp.text[:200])
+            except Exception:
+                err_desc = resp.text[:200]
+            log.error("Telegram send failed: %d %s", resp.status_code, err_desc)
+            # 403 = bot can't message this chat_id (user hasn't /started the bot)
+            if resp.status_code == 403:
+                log.error("Telegram 403: Make sure you sent /start to your bot!")
             return False
 
         log.debug("Telegram message sent: %s", text[:80])

@@ -127,15 +127,16 @@ def analyze_bounty(bounty: Bounty) -> dict[str, Any]:
         reviewer = DoubtReviewer()
         reviewed = reviewer.review_many(findings, source_code)
         result["reviewed_findings"] = [r.to_dict() for r in reviewed]
-        submittable = reviewer.filter_submittable(reviewed)
+        # Count both "submit" AND "investigate" as worth showing
+        submittable = [r for r in reviewed if r.recommendation in ("submit", "investigate")]
         result["submittable_count"] = len(submittable)
         log.info(
-            "[%s] %d findings -> %d survive doubt review -> %d submittable",
+            "[%s] %d findings -> %d survive doubt review -> %d worth reviewing",
             bounty.project_name, len(findings), sum(1 for r in reviewed if r.survives), len(submittable),
         )
     else:
-        # No doubt review — all findings are "submittable" if confidence >= 0.7
-        result["submittable_count"] = sum(1 for f in findings if f.confidence >= 0.7)
+        # No doubt review — all findings with confidence >= 0.5 are shown
+        result["submittable_count"] = sum(1 for f in findings if f.confidence >= 0.5)
 
     return result
 
@@ -149,12 +150,16 @@ def create_finding_issues(analysis_results: list[dict[str, Any]], gh: GitHubClie
         if result["submittable_count"] == 0:
             continue
 
-        # Find submittable findings
+        # Find ALL findings worth showing — both "submit" AND "investigate"
+        # (doubt review sometimes says "investigate" for valid findings it's not 100% sure about)
         submittable = []
         if "reviewed_findings" in result and result["reviewed_findings"]:
-            submittable = [r for r in result["reviewed_findings"] if r.get("recommendation") == "submit"]
+            submittable = [
+                r for r in result["reviewed_findings"]
+                if r.get("recommendation") in ("submit", "investigate")
+            ]
         else:
-            submittable = [f for f in result["findings"] if f.get("confidence", 0) >= 0.7]
+            submittable = [f for f in result["findings"] if f.get("confidence", 0) >= 0.5]
 
         if not submittable:
             continue
@@ -326,7 +331,7 @@ def main() -> int:
     # 4. Save summary
     save_summary(fresh_bounties, analysis_results)
 
-    # 5. Create GitHub Issues for findings (only if not dry-run)
+    # 5. Create GitHub Issues for findings (create for both "submit" AND "investigate")
     total_submittable = sum(r["submittable_count"] for r in analysis_results)
     if not args.dry_run and analysis_results:
         gh = GitHubClient()
