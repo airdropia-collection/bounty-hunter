@@ -129,7 +129,7 @@ class TelegramNotifier:
     def send_error(self, error: str, context: str = "") -> None:
         """Notify: an error occurred."""
         error = sanitize(error, max_len=500)
-        msg = f"❌ *Error*\n"
+        msg = "❌ *Error*\n"
         if context:
             msg += f"Context: {context}\n"
         msg += f"```\n{error}\n```"
@@ -138,7 +138,7 @@ class TelegramNotifier:
     def send_operator_needed(self, title: str, issue_url: str = "") -> None:
         """Notify: operator (you) needs to take action."""
         msg = (
-            f"🚨 *OPERATOR NEEDED*\n"
+            "🚨 *OPERATOR NEEDED*\n"
             f"{title}\n"
         )
         if issue_url:

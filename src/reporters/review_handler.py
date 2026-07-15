@@ -1,4 +1,5 @@
 """
+from typing import Any
 Review handler — processes /submit /reject /modify commands.
 
 When the user comments on a GitHub Issue with:
@@ -15,7 +16,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any, Dict
+
 
 from src.utils.logger import get_logger
 from src.utils.state import State
@@ -31,7 +32,7 @@ class ReviewHandler:
         comment: str,
         commenter: str,
         issue_number: int,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Process a GitHub Issue comment.
 
         Returns action dict with:
@@ -57,7 +58,7 @@ class ReviewHandler:
             "summary": f"Unrecognized command from @{commenter}",
         }
 
-    def _handle_submit(self, comment: str, commenter: str, issue: int) -> Dict[str, Any]:
+    def _handle_submit(self, comment: str, commenter: str, issue: int) -> dict[str, Any]:
         parts = comment.split(maxsplit=1)
         note = parts[1].strip() if len(parts) > 1 else ""
 
@@ -78,7 +79,7 @@ class ReviewHandler:
             "summary": f"✅ @{commenter} approved submission. Manual submission required.",
         }
 
-    def _handle_reject(self, comment: str, commenter: str, issue: int) -> Dict[str, Any]:
+    def _handle_reject(self, comment: str, commenter: str, issue: int) -> dict[str, Any]:
         parts = comment.split(maxsplit=1)
         reason = parts[1].strip() if len(parts) > 1 else "No reason"
 
@@ -98,7 +99,7 @@ class ReviewHandler:
             "summary": f"❌ @{commenter} rejected: {reason}",
         }
 
-    def _handle_modify(self, comment: str, commenter: str, issue: int) -> Dict[str, Any]:
+    def _handle_modify(self, comment: str, commenter: str, issue: int) -> dict[str, Any]:
         parts = comment.split(maxsplit=2)
         if len(parts) < 3:
             return {
@@ -124,7 +125,7 @@ class ReviewHandler:
             "summary": f"📝 @{commenter} requested modification: {instructions}",
         }
 
-    def _handle_resolve(self, comment: str, commenter: str, issue: int) -> Dict[str, Any]:
+    def _handle_resolve(self, comment: str, commenter: str, issue: int) -> dict[str, Any]:
         """Handle /resolve — user fixed an operator-needed issue."""
         parts = comment.split(maxsplit=2)
         note = parts[2].strip() if len(parts) > 2 else (parts[1].strip() if len(parts) > 1 else "fixed")

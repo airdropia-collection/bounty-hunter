@@ -7,7 +7,7 @@ human review and local testing.
 """
 from __future__ import annotations
 
-from typing import Optional
+
 
 from src.analyzers.ai_helper import get_ai_helper
 from src.analyzers.vuln_detector import Finding
@@ -71,7 +71,7 @@ class PoCGenerator:
     def __init__(self):
         self.ai = get_ai_helper()
 
-    def generate(self, finding: Finding, source_code: str = "") -> Optional[str]:
+    def generate(self, finding: Finding, source_code: str = "") -> str | None:
         """Generate a PoC for a finding.
 
         Returns Solidity code or None if PoC can't be generated.

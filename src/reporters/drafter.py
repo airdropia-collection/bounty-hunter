@@ -7,8 +7,6 @@ requirements — this module handles the templates.
 """
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
-
 from src.analyzers.ai_helper import get_ai_helper
 from src.analyzers.vuln_detector import Finding
 from src.utils.logger import get_logger
