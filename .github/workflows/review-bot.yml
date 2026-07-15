@@ -1,0 +1,71 @@
+name: 🤖 Review Response Bot
+
+on:
+  issue_comment:
+    types: [created]
+
+concurrency:
+  group: review-bot-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  process_review:
+    if: |
+      contains(github.event.issue.labels.*.name, 'bounty-finding') &&
+      (
+        startsWith(github.event.comment.body, '/submit') ||
+        startsWith(github.event.comment.body, '/reject') ||
+        startsWith(github.event.comment.body, '/modify')
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: 🔄 Process Review
+        env:
+          COMMENT: ${{ github.event.comment.body }}
+          COMMENTER: ${{ github.event.comment.user.login }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          GH_PAT: ${{ secrets.GH_PAT }}
+          GH_REPO: ${{ github.repository }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: |
+          python -m src.reporters.review_handler \
+            --comment "$COMMENT" \
+            --commenter "$COMMENTER" \
+            --issue "$ISSUE_NUMBER"
+
+      - name: 💬 Reply
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let summary = 'Processed';
+            try {
+              const result = JSON.parse(fs.readFileSync('state/review_result.json', 'utf8'));
+              summary = result.summary || 'Processed (no summary)';
+            } catch (e) {}
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `**@${context.payload.comment.user.login}** — ${summary}`
+            });

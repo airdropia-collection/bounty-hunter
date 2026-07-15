@@ -1,0 +1,78 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bounty-hunter"
+version = "0.1.0"
+description = "AI-powered Web3 bug bounty hunter — scrapes Immunefi/Code4rana/Sherlock, analyzes smart contracts, drafts vulnerability reports."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Bounty Hunter Contributors" }]
+keywords = ["bug-bounty", "web3", "solidity", "ai", "gemini", "groq", "immunefi", "code4rana", "sherlock"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Security",
+    "Topic :: Software Development :: Testing",
+]
+dependencies = [
+    "python-dotenv>=1.0.0",
+    "pydantic>=2.5.0",
+    "rich>=13.7.0",
+    "tenacity>=8.2.0",
+    "httpx>=0.25.0",
+    "selectolax>=0.3.21",
+    "patchright>=1.40.0",
+    "playwright>=1.40.0",
+    "google-generativeai>=0.7.0",
+    "openai>=1.0.0",
+    "web3.py>=6.0.0",
+    "slither-analyzer>=0.10.0",
+    "PyGithub>=2.0.0",
+    "jinja2>=3.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4",
+    "pytest-asyncio>=0.21",
+    "pytest-cov>=4.1",
+    "respx>=0.20",
+    "ruff>=0.1.6",
+    "mypy>=1.7",
+]
+
+[project.urls]
+Homepage = "https://github.com/airdropia-collection/bounty-hunter"
+Issues = "https://github.com/airdropia-collection/bounty-hunter/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-ra -q"
+asyncio_mode = "auto"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "UP"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true

@@ -1,0 +1,53 @@
+# === Secrets (NEVER commit) ===
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+*pat*
+*token*
+.secrets/
+
+# === Runtime state (regenerated each run) ===
+state/
+cache/
+evidence/
+reports/
+*.log
+
+# === Python ===
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+*.egg
+build/
+dist/
+.eggs/
+
+# === Virtual envs ===
+.venv/
+venv/
+env/
+ENV/
+
+# === Testing / coverage ===
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.mypy_cache/
+.ruff_cache/
+
+# === IDE ===
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# === OS ===
+.DS_Store
+Thumbs.db
+desktop.ini

@@ -1,0 +1,17 @@
+# CODEOWNERS — https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owner
+*                           @airdropia-collection
+
+# Security-critical
+SECURITY.md                 @airdropia-collection
+skills/security-and-hardening/  @airdropia-collection
+.github/workflows/          @airdropia-collection
+src/utils/github_client.py  @airdropia-collection
+src/analyzers/              @airdropia-collection
+state/                      @airdropia-collection
+
+# Skills (vendored — don't modify without discussion)
+skills/                     @airdropia-collection
+agents/                     @airdropia-collection
+references/                 @airdropia-collection

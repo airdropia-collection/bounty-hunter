@@ -1,0 +1,32 @@
+# === Core ===
+python-dotenv>=1.0.0
+pydantic>=2.5.0
+rich>=13.7.0
+tenacity>=8.2.0
+
+# === HTTP / Scraping ===
+httpx>=0.25.0
+selectolax>=0.3.21
+patchright>=1.40.0          # Cloudflare bypass (patched Playwright fork)
+playwright>=1.40.0          # Fallback
+
+# === AI ===
+google-generativeai>=0.7.0  # Gemini 1.5-flash (1M tok/day free)
+openai>=1.0.0               # Groq client (Llama-3.1-70B, 1M tok/day free)
+
+# === Web3 ===
+web3.py>=6.0.0              # RPC calls (free public endpoints)
+slither-analyzer>=0.10.0    # Solidity static analysis
+
+# === GitHub API ===
+PyGithub>=2.0.0             # GitHub Issues / PRs
+
+# === Templating ===
+jinja2>=3.1.0               # Report templates
+
+# === Dev (optional, via [dev] extra) ===
+# pytest>=7.4
+# pytest-asyncio>=0.21
+# pytest-cov>=4.1
+# respx>=0.20
+# ruff>=0.1.6

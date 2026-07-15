@@ -1,0 +1,35 @@
+name: 🐛 Bug Report
+description: Report something that's broken
+title: "🐛 [BUG] <short summary>"
+labels: ["bug", "triage"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+    validations:
+      required: true
+  - type: dropdown
+    id: component
+    attributes:
+      label: Affected component
+      options:
+        - scrapers (immunefi/code4rana/sherlock/gitcoin)
+        - analyzers (AI / Slither / vuln detection)
+        - reporters (drafting / PoC / GitHub Issue)
+        - trackers (submission status / earnings)
+        - utils (logger / state / github_client)
+        - workflow (GitHub Actions)
+        - other
+    validations:
+      required: true
+  - type: input
+    id: run-url
+    attributes:
+      label: Workflow run URL (if applicable)
+      placeholder: https://github.com/airdropia-collection/bounty-hunter/actions/runs/...
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log excerpt (redact secrets)
+      render: shell

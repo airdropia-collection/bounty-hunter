@@ -1,0 +1,30 @@
+name: ✨ Feature Request
+description: Suggest a new feature or improvement
+title: "✨ [FEATURE] <short summary>"
+labels: ["enhancement", "triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: What solution would you like?
+    validations:
+      required: true
+  - type: dropdown
+    id: category
+    attributes:
+      label: Feature category
+      options:
+        - new platform (bug bounty / audit contest)
+        - AI analysis (new vuln type / better detection)
+        - reporting (template / PoC generation)
+        - tracking (earnings / status)
+        - infrastructure (CI / state / logging)
+        - other
+    validations:
+      required: true
