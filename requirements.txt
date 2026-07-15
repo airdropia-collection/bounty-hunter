@@ -15,7 +15,7 @@ google-generativeai>=0.7.0  # Gemini 1.5-flash (1M tok/day free)
 openai>=1.0.0               # Groq client (Llama-3.1-70B, 1M tok/day free)
 
 # === Web3 ===
-web3.py>=6.0.0              # RPC calls (free public endpoints)
+web3>=6.0.0                # RPC calls (free public endpoints) — package name is "web3" not "web3.py"
 slither-analyzer>=0.10.0    # Solidity static analysis
 
 # === GitHub API ===

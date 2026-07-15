@@ -1,0 +1,6 @@
+"""Smoke test — verifies the package imports."""
+from src import __version__
+
+
+def test_version():
+    assert __version__ == "0.1.0"
