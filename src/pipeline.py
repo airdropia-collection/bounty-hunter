@@ -137,6 +137,9 @@ def analyze_bounty(bounty: Bounty) -> dict[str, Any]:
             "[%s] %d findings -> %d VERIFIED, %d INCONCLUSIVE, %d FALSE_POSITIVE -> %d worth reviewing",
             bounty.project_name, len(findings), verified_count, inconclusive_count, false_pos_count, len(worth_reviewing),
         )
+        # Rate limit: sleep between bounties to stay under Gemini's 20 req/min
+        import time as _time
+        _time.sleep(5)
     else:
         # No doubt review — all findings with confidence >= 0.5 are shown
         result["submittable_count"] = sum(1 for f in findings if f.confidence >= 0.5)

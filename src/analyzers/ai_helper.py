@@ -89,9 +89,14 @@ class AIHelper:
         prompt: str,
         system: str | None = None,
         json_mode: bool = False,
-        max_retries: int = 3,
+        max_retries: int = 2,
     ) -> str:
-        """Generate AI response with fallback chain: Gemini → Groq → error."""
+        """Generate AI response with fallback chain: Gemini → Groq → error.
+
+        Note: max_retries reduced to 2 to avoid hammering Gemini's 20 req/min
+        free tier rate limit. Each retry tries all 3 Gemini models, so
+        max_retries=2 = 6 Gemini attempts max + 2 Groq attempts.
+        """
         errors = []
 
         if self._genai:
@@ -102,7 +107,11 @@ class AIHelper:
                     err = f"Gemini attempt {attempt + 1}: {sanitize(exc)}"
                     errors.append(err)
                     log.warning("%s", err)
-                    time.sleep(2 ** attempt)
+                    # Sleep longer on 429 to let rate limit reset
+                    if "429" in str(exc):
+                        time.sleep(15)  # Gemini rate limit resets every ~15s
+                    else:
+                        time.sleep(2 ** attempt)
 
         if self.groq:
             for attempt in range(max_retries):

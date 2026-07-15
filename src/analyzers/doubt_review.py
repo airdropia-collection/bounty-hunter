@@ -167,7 +167,7 @@ RULES:
 class FindingVerifier:
     """Rigorous 10-step finding verifier."""
 
-    def __init__(self, max_code_chars: int = 12000):
+    def __init__(self, max_code_chars: int = 8000):
         self.ai = get_ai_helper()
         self.max_code_chars = max_code_chars
 
@@ -246,11 +246,16 @@ class FindingVerifier:
             )
 
     def verify_many(self, findings: list[Finding], source_code: str = "") -> list[VerifiedFinding]:
-        """Verify multiple findings."""
+        """Verify multiple findings. Adds delay between calls to respect rate limits."""
+        import time as _time
+
         results = []
-        for finding in findings:
+        for i, finding in enumerate(findings):
             verified = self.verify(finding, source_code)
             results.append(verified)
+            # Sleep 5s between verifications to stay under Gemini's 20 req/min
+            if i < len(findings) - 1:
+                _time.sleep(5)
         return results
 
     def filter_submittable(self, verified: list[VerifiedFinding]) -> list[VerifiedFinding]:
