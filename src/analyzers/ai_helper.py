@@ -46,9 +46,17 @@ class AIHelper:
                 import google.generativeai as genai
 
                 genai.configure(api_key=gemini_key)
-                self.gemini = genai.GenerativeModel("gemini-1.5-flash")
-                self._genai = genai
-                log.info("Gemini client initialized")
+                # Try gemini-2.0-flash first (newest free tier), fall back to 1.5-flash
+                # The model name changes over time — we try multiple
+                for model_name in ("gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-flash-latest"):
+                    try:
+                        self.gemini = genai.GenerativeModel(model_name)
+                        self._genai = genai
+                        self._gemini_model = model_name
+                        log.info("Gemini client initialized (model=%s)", model_name)
+                        break
+                    except Exception:
+                        continue
             except ImportError:
                 log.warning("google-generativeai not installed; Gemini disabled")
             except Exception as exc:
@@ -144,13 +152,17 @@ class AIHelper:
         messages.append({"role": "user", "content": prompt})
 
         kwargs: dict[str, Any] = {
-            "model": "llama-3.1-70b-versatile",
+            "model": "llama-3.3-70b-versatile",  # updated from 3.1 (deprecated)
             "messages": messages,
             "temperature": 0.3,
             "max_tokens": 8192,
         }
-        if json_mode:
+        # Groq requires the word "json" in the prompt when using response_format
+        if json_mode and "json" in prompt.lower():
             kwargs["response_format"] = {"type": "json_object"}
+        elif json_mode:
+            # Add instruction to return JSON
+            messages[-1]["content"] += "\n\nReturn ONLY valid JSON, no markdown fences."
 
         response = self.groq.chat.completions.create(**kwargs)
         return response.choices[0].message.content
