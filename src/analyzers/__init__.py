@@ -2,7 +2,7 @@
 
 from .ai_helper import AIHelper, get_ai_helper
 from .contract_downloader import ContractDownloader
-from .doubt_review import DoubtReviewer, ReviewedFinding
+from .doubt_review import FindingVerifier, VerifiedFinding
 from .vuln_detector import Finding, VulnerabilityDetector
 
 __all__ = [
@@ -11,6 +11,6 @@ __all__ = [
     "ContractDownloader",
     "Finding",
     "VulnerabilityDetector",
-    "DoubtReviewer",
-    "ReviewedFinding",
+    "FindingVerifier",
+    "VerifiedFinding",
 ]

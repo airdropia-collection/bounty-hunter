@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any
 
 from src.analyzers.contract_downloader import ContractDownloader
-from src.analyzers.doubt_review import DoubtReviewer
+from src.analyzers.doubt_review import FindingVerifier
 from src.analyzers.vuln_detector import VulnerabilityDetector
 from src.config import CONFIG
 from src.scrapers.base import Bounty
@@ -122,17 +122,20 @@ def analyze_bounty(bounty: Bounty) -> dict[str, Any]:
         log.info("[%s] no vulnerabilities found by AI", bounty.project_name)
         return result
 
-    # 3. Doubt-driven review (only if enabled)
+    # 3. Finding verification (10-step rigorous process)
     if CONFIG.ENABLE_DOUBT_REVIEW:
-        reviewer = DoubtReviewer()
-        reviewed = reviewer.review_many(findings, source_code)
-        result["reviewed_findings"] = [r.to_dict() for r in reviewed]
-        # Count both "submit" AND "investigate" as worth showing
-        submittable = [r for r in reviewed if r.recommendation in ("submit", "investigate")]
-        result["submittable_count"] = len(submittable)
+        verifier = FindingVerifier()
+        verified = verifier.verify_many(findings, source_code)
+        result["reviewed_findings"] = [v.to_dict() for v in verified]
+        # Count VERIFIED + INCONCLUSIVE as worth reviewing
+        worth_reviewing = [v for v in verified if v.verdict != "FALSE_POSITIVE"]
+        result["submittable_count"] = len(worth_reviewing)
+        verified_count = sum(1 for v in verified if v.verdict == "VERIFIED")
+        false_pos_count = sum(1 for v in verified if v.verdict == "FALSE_POSITIVE")
+        inconclusive_count = sum(1 for v in verified if v.verdict == "INCONCLUSIVE")
         log.info(
-            "[%s] %d findings -> %d survive doubt review -> %d worth reviewing",
-            bounty.project_name, len(findings), sum(1 for r in reviewed if r.survives), len(submittable),
+            "[%s] %d findings -> %d VERIFIED, %d INCONCLUSIVE, %d FALSE_POSITIVE -> %d worth reviewing",
+            bounty.project_name, len(findings), verified_count, inconclusive_count, false_pos_count, len(worth_reviewing),
         )
     else:
         # No doubt review — all findings with confidence >= 0.5 are shown
@@ -150,13 +153,12 @@ def create_finding_issues(analysis_results: list[dict[str, Any]], gh: GitHubClie
         if result["submittable_count"] == 0:
             continue
 
-        # Find ALL findings worth showing — both "submit" AND "investigate"
-        # (doubt review sometimes says "investigate" for valid findings it's not 100% sure about)
+        # Find ALL findings worth showing — VERIFIED + INCONCLUSIVE (not FALSE_POSITIVE)
         submittable = []
         if "reviewed_findings" in result and result["reviewed_findings"]:
             submittable = [
                 r for r in result["reviewed_findings"]
-                if r.get("recommendation") in ("submit", "investigate")
+                if r.get("verdict") in ("VERIFIED", "INCONCLUSIVE")
             ]
         else:
             submittable = [f for f in result["findings"] if f.get("confidence", 0) >= 0.5]
@@ -173,19 +175,34 @@ def create_finding_issues(analysis_results: list[dict[str, Any]], gh: GitHubClie
             f"**Max Payout:** ${bounty['max_payout_usd']:,}",
             f"**Source Downloaded:** {'✅' if result['source_downloaded'] else '❌'}",
             "",
-            f"### Findings ({result['submittable_count']} submittable)",
+            f"### Findings ({result['submittable_count']} worth reviewing)",
             "",
         ]
 
         for i, f in enumerate(submittable, 1):
-            lines.append(f"#### Finding #{i}: {f.get('original', {}).get('title', f.get('title', 'Untitled'))}")
-            lines.append(f"- **Severity:** {f.get('original', {}).get('severity', f.get('severity', '?'))}")
-            lines.append(f"- **Confidence:** {f.get('confidence_adjusted', f.get('confidence', 0)):.2f}")
-            lines.append(f"- **Description:** {f.get('original', {}).get('description', f.get('description', ''))}")
-            lines.append(f"- **Impact:** {f.get('original', {}).get('impact', f.get('impact', ''))}")
-            lines.append(f"- **Recommendation:** {f.get('original', {}).get('recommendation', f.get('recommendation', ''))}")
-            if f.get('original', {}).get('swc_id', f.get('swc_id', '')):
-                lines.append(f"- **SWC ID:** {f.get('original', {}).get('swc_id', f.get('swc_id', ''))}")
+            orig = f.get("original", f)
+            verdict = f.get("verdict", "UNREVIEWED")
+            verdict_emoji = {"VERIFIED": "✅", "FALSE_POSITIVE": "❌", "INCONCLUSIVE": "⚠️"}.get(verdict, "❓")
+            lines.append(f"#### Finding #{i}: {verdict_emoji} {verdict} — {orig.get('title', 'Untitled')}")
+            lines.append(f"- **Severity:** {orig.get('severity', '?')}")
+            lines.append(f"- **AI Confidence:** {orig.get('confidence', 0):.2f} → **Verified Confidence:** {f.get('confidence_adjusted', 0):.2f}")
+            lines.append(f"- **Verdict:** {verdict}")
+            lines.append(f"- **Description:** {orig.get('description', '')}")
+            lines.append(f"- **Impact:** {orig.get('impact', '')}")
+
+            # Show verification evidence
+            if f.get("evidence"):
+                lines.append(f"- **Evidence:** {f['evidence'][:500]}")
+            if f.get("inheritance_chain") and f["inheritance_chain"] != "Not resolved":
+                lines.append(f"- **Inheritance Chain:** {f['inheritance_chain'][:300]}")
+            if f.get("call_graph") and f["call_graph"] != "Not built":
+                lines.append(f"- **Call Graph:** {f['call_graph'][:300]}")
+            if f.get("falsification_attempts") and f["falsification_attempts"] != "Not attempted":
+                lines.append(f"- **Falsification Attempts:** {f['falsification_attempts'][:300]}")
+
+            if orig.get("swc_id"):
+                lines.append(f"- **SWC ID:** {orig['swc_id']}")
+            lines.append(f"- **Recommendation:** {f.get('recommendation', 'investigate')}")
             lines.append("")
 
         lines.extend([

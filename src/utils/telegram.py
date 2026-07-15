@@ -35,8 +35,66 @@ class TelegramNotifier:
         self.token = token or os.getenv("TELEGRAM_BOT_TOKEN", "")
         self.chat_id = chat_id or os.getenv("TELEGRAM_CHAT_ID", "")
         self._dry_run = not self.token or not self.chat_id
+        self._verified = False  # will be True after first successful send or diagnostic
         if self._dry_run:
             log.info("Telegram in DRY-RUN mode (no TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID)")
+        else:
+            # Run diagnostic on init
+            self._diagnose()
+
+    def _diagnose(self) -> None:
+        """Diagnose Telegram setup — verify token + chat_id are correct."""
+        import httpx
+
+        # Step 1: Verify bot token is valid
+        try:
+            resp = httpx.get(
+                f"{self.BASE_URL}/bot{self.token}/getMe",
+                timeout=10,
+            )
+            if resp.status_code != 200:
+                log.error("Telegram: INVALID BOT TOKEN (getMe failed: %d)", resp.status_code)
+                self._dry_run = True
+                return
+
+            bot_info = resp.json().get("result", {})
+            bot_username = bot_info.get("username", "unknown")
+            log.info("Telegram bot verified: @%s", bot_username)
+        except Exception as exc:
+            log.error("Telegram: getMe failed: %s", exc)
+            self._dry_run = True
+            return
+
+        # Step 2: Try to send a test message to verify chat_id
+        try:
+            resp = httpx.post(
+                f"{self.BASE_URL}/bot{self.token}/sendMessage",
+                json={
+                    "chat_id": self.chat_id,
+                    "text": "🤖 Bounty Hunter bot connected successfully!",
+                    "parse_mode": "Markdown",
+                },
+                timeout=10,
+            )
+            if resp.status_code == 200:
+                self._verified = True
+                log.info("Telegram: ✅ Connected! Notifications will be sent to chat_id=%s", self.chat_id)
+            elif resp.status_code == 403:
+                err = resp.json().get("description", "Forbidden")
+                log.error("Telegram 403: %s", err)
+                log.error("Telegram 403 ROOT CAUSE: chat_id %s does not belong to bot @%s", self.chat_id, bot_username)
+                log.error("FIX: 1) Open Telegram → search @%s → send /start", bot_username)
+                log.error("FIX: 2) Open browser: https://api.telegram.org/bot<TOKEN>/getUpdates")
+                log.error("FIX: 3) Find your chat_id in the response → update TELEGRAM_CHAT_ID secret")
+                log.error("FIX: 4) The chat_id must come from THIS bot's getUpdates, not another bot")
+                self._dry_run = True  # disable further send attempts
+            else:
+                err = resp.json().get("description", resp.text[:200])
+                log.error("Telegram: sendMessage test failed: %d %s", resp.status_code, err)
+                self._dry_run = True
+        except Exception as exc:
+            log.error("Telegram: diagnostic send failed: %s", exc)
+            self._dry_run = True
 
     @property
     def is_configured(self) -> bool:
