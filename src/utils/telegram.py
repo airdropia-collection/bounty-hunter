@@ -25,9 +25,15 @@ class TelegramNotifier:
     BASE_URL = "https://api.telegram.org"
 
     def __init__(self, token: str | None = None, chat_id: str | None = None):
-        # Strip whitespace — GitHub Secrets sometimes have trailing spaces
-        self.token = (token or os.getenv("TELEGRAM_BOT_TOKEN", "")).strip()
-        self.chat_id = (chat_id or os.getenv("TELEGRAM_CHAT_ID", "")).strip()
+        # Strip ALL whitespace from token (including internal if any)
+        raw_token = token or os.getenv("TELEGRAM_BOT_TOKEN", "")
+        self.token = "".join(raw_token.split())  # remove ALL whitespace
+
+        # Strip ALL non-numeric characters from chat_id
+        # Telegram displays ID as "8 753 657 989" with spaces — must become "8753657989"
+        raw_chat_id = chat_id or os.getenv("TELEGRAM_CHAT_ID", "")
+        self.chat_id = "".join(c for c in raw_chat_id if c.isdigit())  # digits only
+
         self._dry_run = not self.token or not self.chat_id
         self._bot_username = ""
 
@@ -35,8 +41,15 @@ class TelegramNotifier:
             log.info("Telegram in DRY-RUN mode (no TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID)")
             return
 
-        # Verify bot token (getMe) but DON'T permanently disable on failure
-        # — just log and try again on each send
+        # Debug: log lengths (not actual values) for troubleshooting
+        log.info(
+            "Telegram: token length=%d, chat_id length=%d, chat_id starts=%s ends=%s",
+            len(self.token), len(self.chat_id),
+            self.chat_id[:4] if len(self.chat_id) >= 4 else "?",
+            self.chat_id[-4:] if len(self.chat_id) >= 4 else "?",
+        )
+
+        # Verify bot token (getMe)
         self._verify_token()
 
     def _verify_token(self) -> None:
