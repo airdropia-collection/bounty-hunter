@@ -108,9 +108,12 @@ class TelegramNotifier:
                     len(chat_ids),
                 )
                 for cid, ctype, cuser in chat_ids:
-                    # Show partial chat_id for privacy: first 4 + last 4 digits
+                    # Show first 6 + last 4 digits for easier identification
                     cid_str = str(cid)
-                    masked = cid_str[:4] + "..." + cid_str[-4:] if len(cid_str) > 8 else cid_str
+                    if len(cid_str) > 10:
+                        masked = cid_str[:6] + "..." + cid_str[-4:]
+                    else:
+                        masked = cid_str
                     log.error(
                         "  → chat_id=%s (type=%s, user=%s) — %s",
                         masked, ctype, cuser,
@@ -120,10 +123,17 @@ class TelegramNotifier:
                 if not any(str(cid) == self.chat_id for cid, _, _ in chat_ids):
                     log.error(
                         "ROOT CAUSE: TELEGRAM_CHAT_ID=%s does NOT match any chat that messaged this bot!",
-                        self.chat_id[:4] + "..." + self.chat_id[-4:] if len(self.chat_id) > 8 else self.chat_id,
+                        self.chat_id[:6] + "..." + self.chat_id[-4:] if len(self.chat_id) > 10 else self.chat_id,
                     )
                     log.error(
-                        "FIX: Update TELEGRAM_CHAT_ID secret to one of the chat_ids listed above"
+                        "FIX: Open https://api.telegram.org/bot<TOKEN>/getUpdates in browser"
+                    )
+                    log.error(
+                        "FIX: Copy the chat_id from the response (the one starting with %s...)",
+                        str(list(chat_ids)[0][0])[:6] if chat_ids else "??????",
+                    )
+                    log.error(
+                        "FIX: Update TELEGRAM_CHAT_ID secret with that EXACT number"
                     )
             else:
                 log.error("Telegram getUpdates failed: %d", resp.status_code)
