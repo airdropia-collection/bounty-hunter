@@ -122,16 +122,26 @@ class AIHelper:
         system: str | None = None,
         max_retries: int = 3,
     ) -> dict[str, Any]:
-        """Generate AI response and parse as JSON."""
-        result = self.generate(prompt, system, json_mode=True, max_retries=max_retries)
-        # Strip markdown code fences if present
-        result = result.strip()
-        if result.startswith("```"):
-            lines = result.split("\n")
-            # Remove first and last lines (```json ... ```)
-            lines = [ln for ln in lines if not ln.strip().startswith("```")]
-            result = "\n".join(lines)
-        return json.loads(result)
+        """Generate AI response and parse as JSON. Retries on parse failure."""
+        for attempt in range(max_retries):
+            try:
+                result = self.generate(prompt, system, json_mode=True, max_retries=1)
+                # Strip markdown code fences if present
+                result = result.strip()
+                if result.startswith("```"):
+                    lines = result.split("\n")
+                    lines = [ln for ln in lines if not ln.strip().startswith("```")]
+                    result = "\n".join(lines)
+                return json.loads(result)
+            except json.JSONDecodeError as exc:
+                log.warning("JSON parse failed (attempt %d): %s", attempt + 1, exc)
+                # Add "return ONLY valid JSON" instruction for retry
+                prompt = prompt + "\n\nIMPORTANT: Return ONLY valid JSON. No markdown, no comments, no trailing text."
+                if attempt == max_retries - 1:
+                    raise
+            except Exception:
+                raise
+        raise RuntimeError("generate_json exhausted retries")
 
     # ------------------------------------------------------------------ #
     # Provider calls
