@@ -111,7 +111,14 @@ Source code to analyze:
 class VulnerabilityDetector:
     """AI-powered vulnerability detector."""
 
-    def __init__(self, max_code_chars: int = 30000):
+    def __init__(self, max_code_chars: int = 15000):
+        """Initialize vulnerability detector.
+
+        Args:
+            max_code_chars: Max source code chars to send to AI.
+                Gemini 1.5-flash: supports up to 1M tokens (~4M chars)
+                Groq llama-3.3-70b: ~8K tokens (~32K chars) — we use 15K to be safe
+        """
         self.ai = get_ai_helper()
         self.max_code_chars = max_code_chars
 

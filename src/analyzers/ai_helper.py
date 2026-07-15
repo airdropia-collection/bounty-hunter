@@ -46,9 +46,9 @@ class AIHelper:
                 import google.generativeai as genai
 
                 genai.configure(api_key=gemini_key)
-                # Try gemini-2.0-flash first (newest free tier), fall back to 1.5-flash
-                # The model name changes over time — we try multiple
-                for model_name in ("gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-flash-latest"):
+                # Try gemini-1.5-flash first (has 1M tok/day free tier),
+                # then 2.0-flash (some accounts have limit:0 on free tier)
+                for model_name in ("gemini-1.5-flash", "gemini-1.5-flash-latest", "gemini-2.0-flash"):
                     try:
                         self.gemini = genai.GenerativeModel(model_name)
                         self._genai = genai
