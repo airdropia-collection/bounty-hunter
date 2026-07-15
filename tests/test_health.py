@@ -1,11 +1,10 @@
 """Tests for the health check module."""
-import pytest
 
 from src.health import (
-    run_all_checks,
-    print_report,
-    wake_operator_if_needed,
     Check,
+    print_report,
+    run_all_checks,
+    wake_operator_if_needed,
 )
 
 

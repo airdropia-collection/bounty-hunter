@@ -1,7 +1,7 @@
 """Tests for the logger configuration."""
 import logging
 
-from src.utils.logger import get_logger, ROOT_LOGGER_NAME
+from src.utils.logger import ROOT_LOGGER_NAME, get_logger
 
 
 def test_get_logger_returns_child():

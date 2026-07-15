@@ -1,5 +1,4 @@
 """Tests for the config module."""
-import pytest
 
 from src.config import Config
 

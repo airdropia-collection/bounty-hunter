@@ -22,9 +22,9 @@ Format (JSON file at ``state/<name>.json``):
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 from src.utils.logger import get_logger
 
@@ -56,12 +56,12 @@ class State:
         self.name = name
         self.path = Path(state_dir) / f"{name}.json"
         self.ttl = timedelta(hours=ttl_hours)
-        self._data: Dict[str, Any] = self._load()
+        self._data: dict[str, Any] = self._load()
 
     # ------------------------------------------------------------------ #
     # Persistence
     # ------------------------------------------------------------------ #
-    def _load(self) -> Dict[str, Any]:
+    def _load(self) -> dict[str, Any]:
         if not self.path.exists():
             return {"items": {}}
         try:
@@ -72,7 +72,7 @@ class State:
 
     def _save(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self._data["updated_at"] = datetime.now(timezone.utc).isoformat()
+        self._data["updated_at"] = datetime.now(UTC).isoformat()
         try:
             self.path.write_text(
                 json.dumps(self._data, indent=2, default=str), encoding="utf-8"
@@ -91,15 +91,15 @@ class State:
         try:
             ts = datetime.fromisoformat(entry["added_at"])
             if ts.tzinfo is None:
-                ts = ts.replace(tzinfo=timezone.utc)
-            age = datetime.now(timezone.utc) - ts
+                ts = ts.replace(tzinfo=UTC)
+            age = datetime.now(UTC) - ts
             if age > self.ttl:
                 return False
             return True
         except Exception:  # noqa: BLE001
             return False
 
-    def get(self, key: str) -> Optional[Any]:
+    def get(self, key: str) -> Any | None:
         """Return the data payload for ``key``, or None if not present/expired."""
         if not self.has(key):
             return None
@@ -114,7 +114,7 @@ class State:
         """Add or update an item."""
         items = self._data.setdefault("items", {})
         items[key] = {
-            "added_at": datetime.now(timezone.utc).isoformat(),
+            "added_at": datetime.now(UTC).isoformat(),
             "status": status,
             "data": data,
         }
@@ -129,7 +129,7 @@ class State:
         items[key]["status"] = status
         if data is not None:
             items[key]["data"] = data
-        items[key]["updated_at"] = datetime.now(timezone.utc).isoformat()
+        items[key]["updated_at"] = datetime.now(UTC).isoformat()
         self._save()
         log.debug("state[%s] updated: %s -> %s", self.name, key, status)
         return True
@@ -140,7 +140,7 @@ class State:
 
     def prune(self) -> int:
         """Remove all expired entries. Returns count pruned."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         items = self._data.get("items", {})
         before = len(items)
         kept = {}
@@ -148,7 +148,7 @@ class State:
             try:
                 ts = datetime.fromisoformat(entry["added_at"])
                 if ts.tzinfo is None:
-                    ts = ts.replace(tzinfo=timezone.utc)
+                    ts = ts.replace(tzinfo=UTC)
                 if now - ts <= self.ttl:
                     kept[key] = entry
             except Exception:  # noqa: BLE001
@@ -164,14 +164,14 @@ class State:
         """Return total number of items (including expired)."""
         return len(self._data.get("items", {}))
 
-    def count_by_status(self) -> Dict[str, int]:
+    def count_by_status(self) -> dict[str, int]:
         """Return count of items grouped by status."""
-        counts: Dict[str, int] = {}
+        counts: dict[str, int] = {}
         for entry in self._data.get("items", {}).values():
             status = entry.get("status", "unknown")
             counts[status] = counts.get(status, 0) + 1
         return counts
 
-    def all_items(self) -> Dict[str, Any]:
+    def all_items(self) -> dict[str, Any]:
         """Return all items (raw). For debugging/reporting."""
         return dict(self._data.get("items", {}))

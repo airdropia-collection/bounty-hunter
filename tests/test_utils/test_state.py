@@ -1,6 +1,5 @@
 """Tests for the State class."""
-import json
-from pathlib import Path
+
 
 from src.utils.state import State
 

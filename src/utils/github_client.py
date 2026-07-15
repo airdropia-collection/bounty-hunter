@@ -25,7 +25,7 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from src.utils.logger import get_logger
 from src.utils.retry import retry_network
@@ -58,7 +58,7 @@ class Issue:
     number: int
     title: str
     body: str
-    labels: List[str]
+    labels: list[str]
     url: str
     state: str
 
@@ -70,7 +70,7 @@ class GitHubClient:
     if credentials are missing (useful for local dev + tests).
     """
 
-    def __init__(self, token: Optional[str] = None, repo: Optional[str] = None):
+    def __init__(self, token: str | None = None, repo: str | None = None):
         self.token = token or os.getenv("GH_PAT", "")
         self.repo = repo or os.getenv("GH_REPO", "")
         self._base = "https://api.github.com"
@@ -84,7 +84,7 @@ class GitHubClient:
     # ------------------------------------------------------------------ #
     # Internal HTTP
     # ------------------------------------------------------------------ #
-    def _headers(self) -> Dict[str, str]:
+    def _headers(self) -> dict[str, str]:
         return {
             "Authorization": f"Bearer {self.token}",
             "Accept": "application/vnd.github+json",
@@ -92,7 +92,7 @@ class GitHubClient:
         }
 
     @retry_network(max_attempts=3, base_delay=1.0, max_delay=5.0)
-    def _request(self, method: str, path: str, json_body: Optional[dict] = None) -> dict:
+    def _request(self, method: str, path: str, json_body: dict | None = None) -> dict:
         import httpx
 
         url = f"{self._base}{path}"
@@ -152,8 +152,8 @@ class GitHubClient:
         self,
         title: str,
         body: str,
-        labels: Optional[List[str]] = None,
-    ) -> Optional[Issue]:
+        labels: list[str] | None = None,
+    ) -> Issue | None:
         """Create a GitHub Issue. Returns Issue object or None in dry-run."""
         title = sanitize(title, max_len=200) if not is_safe_title(title) else title
         body = sanitize(body, max_len=50000)
@@ -170,7 +170,7 @@ class GitHubClient:
             number=result.get("number", 0),
             title=result.get("title", title),
             body=result.get("body", body),
-            labels=[l["name"] for l in result.get("labels", [])],
+            labels=[lbl["name"] for lbl in result.get("labels", [])],
             url=result.get("html_url", ""),
             state=result.get("state", "open"),
         )
@@ -197,13 +197,13 @@ class GitHubClient:
         })
         log.info("closed #%d (%s)", issue_number, reason)
 
-    def add_labels(self, issue_number: int, labels: List[str]) -> None:
+    def add_labels(self, issue_number: int, labels: list[str]) -> None:
         """Add labels to an Issue."""
         if self._dry_run:
             return
         self._request("POST", f"/repos/{self.repo}/issues/{issue_number}/labels", {"labels": labels})
 
-    def get_issue(self, issue_number: int) -> Optional[Issue]:
+    def get_issue(self, issue_number: int) -> Issue | None:
         """Fetch an Issue by number."""
         if self._dry_run:
             return None
@@ -213,7 +213,7 @@ class GitHubClient:
                 number=result.get("number", 0),
                 title=result.get("title", ""),
                 body=result.get("body", ""),
-                labels=[l["name"] for l in result.get("labels", [])],
+                labels=[lbl["name"] for lbl in result.get("labels", [])],
                 url=result.get("html_url", ""),
                 state=result.get("state", "open"),
             )
@@ -221,7 +221,7 @@ class GitHubClient:
             log.error("could not fetch issue #%d: %s", issue_number, exc)
             return None
 
-    def list_open_issues(self, label: Optional[str] = None) -> List[Issue]:
+    def list_open_issues(self, label: str | None = None) -> list[Issue]:
         """List open issues, optionally filtered by label."""
         if self._dry_run:
             return []
@@ -241,7 +241,7 @@ class GitHubClient:
                 number=i.get("number", 0),
                 title=i.get("title", ""),
                 body=i.get("body", "") or "",
-                labels=[l["name"] for l in i.get("labels", [])],
+                labels=[lbl["name"] for lbl in i.get("labels", [])],
                 url=i.get("html_url", ""),
                 state=i.get("state", "open"),
             )
@@ -257,8 +257,8 @@ class GitHubClient:
         title: str,
         body: str,
         category: str = "general",
-        context: Optional[Dict[str, Any]] = None,
-    ) -> Optional[Issue]:
+        context: dict[str, Any] | None = None,
+    ) -> Issue | None:
         """Wake the human operator.
 
         Creates a GitHub Issue with label ``operator-needed``. The user

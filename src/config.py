@@ -8,7 +8,6 @@ are missing.
 from __future__ import annotations
 
 import os
-from typing import List
 
 from src.utils.logger import get_logger
 
@@ -84,7 +83,7 @@ class Config:
     def has_wallet(self) -> bool:
         return bool(self.WALLET_ADDRESS)
 
-    def missing_critical_secrets(self) -> List[str]:
+    def missing_critical_secrets(self) -> list[str]:
         """Return list of critical missing secrets (would block operation)."""
         missing = []
         if not self.has_gemini:
@@ -95,7 +94,7 @@ class Config:
             missing.append("GH_PAT + GH_REPO")
         return missing
 
-    def missing_optional_secrets(self) -> List[str]:
+    def missing_optional_secrets(self) -> list[str]:
         """Return list of optional missing secrets (degraded but functional)."""
         missing = []
         if not self.has_etherscan:

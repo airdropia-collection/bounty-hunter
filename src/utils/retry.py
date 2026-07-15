@@ -6,7 +6,7 @@ backoff on transient failures.
 """
 from __future__ import annotations
 
-from typing import Callable
+from collections.abc import Callable
 
 try:
     from tenacity import (

@@ -13,11 +13,10 @@ from __future__ import annotations
 
 import sys
 from dataclasses import dataclass
-from typing import List
 
 from src.config import CONFIG
-from src.utils.logger import get_logger
 from src.utils.github_client import GitHubClient
+from src.utils.logger import get_logger
 
 log = get_logger("health")
 
@@ -30,7 +29,7 @@ class Check:
     severity: str = "info"  # error | warning | info
 
 
-def _check_llm_keys() -> List[Check]:
+def _check_llm_keys() -> list[Check]:
     checks = []
     if CONFIG.has_gemini:
         checks.append(Check("gemini_api_key", True, "Gemini API key present", "info"))
@@ -55,7 +54,7 @@ def _check_github() -> Check:
     return Check("github", False, "GH_PAT or GH_REPO not set (no issue creation)", "error")
 
 
-def _check_web3() -> List[Check]:
+def _check_web3() -> list[Check]:
     checks = []
     if CONFIG.ETH_RPC_URL:
         checks.append(Check("eth_rpc", True, f"ETH_RPC_URL={CONFIG.ETH_RPC_URL}", "info"))
@@ -81,8 +80,8 @@ def _check_dry_run() -> Check:
     return Check("dry_run", True, "DRY_RUN=false (REAL submissions enabled — be careful!)", "warning")
 
 
-def run_all_checks() -> List[Check]:
-    checks: List[Check] = []
+def run_all_checks() -> list[Check]:
+    checks: list[Check] = []
     checks.extend(_check_llm_keys())
     checks.append(_check_github())
     checks.extend(_check_web3())
@@ -91,7 +90,7 @@ def run_all_checks() -> List[Check]:
     return checks
 
 
-def print_report(checks: List[Check]) -> int:
+def print_report(checks: list[Check]) -> int:
     has_error = False
     has_warning = False
 
@@ -121,7 +120,7 @@ def print_report(checks: List[Check]) -> int:
     return code
 
 
-def wake_operator_if_needed(checks: List[Check]) -> None:
+def wake_operator_if_needed(checks: list[Check]) -> None:
     """If critical secrets are missing, create a GitHub Issue to wake the operator."""
     errors = [c for c in checks if c.severity == "error" and not c.ok]
     if not errors:

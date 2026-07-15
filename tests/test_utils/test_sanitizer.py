@@ -1,6 +1,5 @@
 """Tests for the secret sanitizer."""
-from src.utils.sanitizer import sanitize, is_safe_to_log
-
+from src.utils.sanitizer import is_safe_to_log, sanitize
 
 _LONG_BLOB = "AAAABBBBCCCCDDDDEEEEFFFFgggghhhhiiiijjjjkkkkllll"
 

@@ -1,14 +1,12 @@
 """Tests for the GitHub client."""
-import os
-
 import pytest
 
 from src.utils.github_client import (
+    ALL_LABELS,
+    LABEL_BOUNTY_FINDING,
+    LABEL_OPERATOR_NEEDED,
     GitHubClient,
     Issue,
-    LABEL_OPERATOR_NEEDED,
-    LABEL_BOUNTY_FINDING,
-    ALL_LABELS,
 )
 
 
@@ -24,7 +22,7 @@ def test_dry_run_mode_when_no_credentials(dry_run_client):
     assert dry_run_client._dry_run is True
 
 
-def test_dry_run_create_issue_returns_none(dry_run_client, caplog):
+def test_dry_run_create_issue_returns_none(dry_run_client):
     issue = dry_run_client.create_issue("test title", "test body", labels=["test"])
     assert issue is None
 
@@ -39,7 +37,6 @@ def test_dry_run_wake_operator_returns_none(dry_run_client):
 
 
 def test_dry_run_comment_issue_no_crash(dry_run_client):
-    # Should not raise
     dry_run_client.comment_issue(123, "test comment")
 
 
@@ -73,7 +70,6 @@ def test_all_labels_defined():
 
 
 def test_wake_operator_with_context(dry_run_client):
-    # Should not crash even with complex context
     issue = dry_run_client.wake_operator(
         title="Ambiguous finding",
         body="I found something but I'm not sure",
