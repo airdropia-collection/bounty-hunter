@@ -38,15 +38,13 @@ class AIHelper:
         self._init_clients()
 
     # Gemini model priority (user-confirmed):
-    # 3.5-flash → 3.1-flash → 2.5-flash (all have 1M tok/day free)
-    # 2.0-flash and 1.5-flash as last-resort fallbacks
+    # Always try in this order: 3.5-flash → 3.1-flash → 2.5-flash
+    # No permanent blacklist — a model that fails on one task may work on the next
+    # Minimum model is 2.5-flash (no 2.0 or 1.5 — those are deprecated)
     GEMINI_MODELS = [
         "gemini-3.5-flash",
         "gemini-3.1-flash",
         "gemini-2.5-flash",
-        "gemini-2.0-flash",
-        "gemini-1.5-flash",
-        "gemini-1.5-flash-latest",
     ]
 
     def _init_clients(self):
@@ -59,11 +57,8 @@ class AIHelper:
 
                 genai.configure(api_key=gemini_key)
                 self._genai = genai
-                # Don't pick a model yet — we'll try each on first call
-                # and remember which one works
-                self._gemini_model = None
-                self._gemini_failed_models: set = set()
-                log.info("Gemini client initialized (will try models on first call)")
+                self._gemini_model = None  # last successful model (for logging)
+                log.info("Gemini client initialized (will try models on each call)")
             except ImportError:
                 log.warning("google-generativeai not installed; Gemini disabled")
             except Exception as exc:
@@ -142,12 +137,10 @@ class AIHelper:
     # Provider calls
     # ------------------------------------------------------------------ #
     def _call_gemini(self, prompt: str, system: str | None, json_mode: bool) -> str:
-        """Call Gemini, trying multiple models if one fails.
+        """Call Gemini, trying models in priority order on EVERY call.
 
-        If we already found a working model, use it directly.
-        If not, try each model in priority order until one works.
-        Models that return 404 (not found) or 429 (quota=0) are
-        remembered as failed so we don't retry them.
+        No permanent blacklist — a model that fails on one task (rate limit,
+        network glitch) may work on the next. Always try: 3.5 → 3.1 → 2.5.
         """
         if not self._genai:
             raise RuntimeError("Gemini module not initialized")
@@ -158,39 +151,20 @@ class AIHelper:
             kwargs["response_mime_type"] = "application/json"
         config = self._genai.GenerationConfig(**kwargs)
 
-        # If we already have a working model, try it first
-        models_to_try = []
-        if self._gemini_model and self._gemini_model not in self._gemini_failed_models:
-            models_to_try.append(self._gemini_model)
-        # Add remaining models that haven't failed
-        for m in self.GEMINI_MODELS:
-            if m not in models_to_try and m not in self._gemini_failed_models:
-                models_to_try.append(m)
-
         last_error = None
-        for model_name in models_to_try:
+        for model_name in self.GEMINI_MODELS:
             try:
                 model = self._genai.GenerativeModel(model_name)
                 response = model.generate_content(full_prompt, generation_config=config)
-                # Success! Remember this model for future calls
+                # Log if model changed from last call
                 if self._gemini_model != model_name:
                     self._gemini_model = model_name
                     log.info("Gemini using model: %s", model_name)
                 return response.text
             except Exception as exc:
-                err_str = str(exc)
-                # 404 = model not found, 429 = quota exceeded
-                # Mark these models as permanently failed for this session
-                if "404" in err_str or "not found" in err_str.lower():
-                    self._gemini_failed_models.add(model_name)
-                    log.warning("Gemini model %s not available, trying next", model_name)
-                elif "429" in err_str and "limit: 0" in err_str:
-                    self._gemini_failed_models.add(model_name)
-                    log.warning("Gemini model %s has quota=0, trying next", model_name)
-                else:
-                    # Transient error (rate limit, network) — don't mark as failed
-                    log.warning("Gemini model %s error: %s", model_name, sanitize(exc))
+                log.warning("Gemini %s failed: %s", model_name, sanitize(exc))
                 last_error = exc
+                # Don't blacklist — just try next model
 
         raise RuntimeError(f"All Gemini models failed. Last error: {sanitize(last_error)}")
 
