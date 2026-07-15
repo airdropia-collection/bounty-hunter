@@ -18,14 +18,15 @@ def test_dry_run_send_returns_false(monkeypatch):
 
 
 def test_configured_when_credentials_present(monkeypatch):
-    """When credentials are present, is_configured depends on diagnostic."""
-    # Use invalid token — diagnostic will fail → _dry_run = True
+    """When credentials are present, is_configured should be True even if getMe fails."""
+    # getMe will fail (invalid token) but _dry_run should still be False
+    # because we don't permanently disable on getMe failure anymore
     monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "invalid_token")
     monkeypatch.setenv("TELEGRAM_CHAT_ID", "456")
     tg = TelegramNotifier()
-    # Diagnostic runs on init and will fail → _dry_run becomes True
-    # So is_configured will be False (diagnostic failed)
-    assert tg._dry_run is True  # invalid token → dry_run after diagnostic
+    # _dry_run is only True if token or chat_id is empty
+    # getMe failure doesn't disable — it just logs a warning
+    assert tg._dry_run is False  # credentials present, not disabled
 
 
 def test_send_pipeline_start_dry_run(monkeypatch):

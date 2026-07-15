@@ -20,7 +20,6 @@ from pathlib import Path
 from typing import Any
 
 from src.analyzers.contract_downloader import ContractDownloader
-from src.analyzers.doubt_review import FindingVerifier
 from src.analyzers.vuln_detector import VulnerabilityDetector
 from src.config import CONFIG
 from src.scrapers.base import Bounty
@@ -113,8 +112,9 @@ def analyze_bounty(bounty: Bounty) -> dict[str, Any]:
     result["source_chars"] = len(source_code)
     log.info("[%s] downloaded %d chars of source code", bounty.project_name, len(source_code))
 
-    # 2. AI vulnerability detection
-    detector = VulnerabilityDetector()
+    # 2. AI vulnerability detection + verification (merged — single AI call)
+    # The detector now does detection AND 10-step verification in one pass
+    # Only VERIFIED and INCONCLUSIVE findings are returned (FALSE_POSITIVEs discarded)
     findings = detector.analyze(source_code, bounty.project_name)
     result["findings"] = [f.to_dict() for f in findings]
 
@@ -122,27 +122,17 @@ def analyze_bounty(bounty: Bounty) -> dict[str, Any]:
         log.info("[%s] no vulnerabilities found by AI", bounty.project_name)
         return result
 
-    # 3. Finding verification (10-step rigorous process)
-    if CONFIG.ENABLE_DOUBT_REVIEW:
-        verifier = FindingVerifier()
-        verified = verifier.verify_many(findings, source_code)
-        result["reviewed_findings"] = [v.to_dict() for v in verified]
-        # Count VERIFIED + INCONCLUSIVE as worth reviewing
-        worth_reviewing = [v for v in verified if v.verdict != "FALSE_POSITIVE"]
-        result["submittable_count"] = len(worth_reviewing)
-        verified_count = sum(1 for v in verified if v.verdict == "VERIFIED")
-        false_pos_count = sum(1 for v in verified if v.verdict == "FALSE_POSITIVE")
-        inconclusive_count = sum(1 for v in verified if v.verdict == "INCONCLUSIVE")
-        log.info(
-            "[%s] %d findings -> %d VERIFIED, %d INCONCLUSIVE, %d FALSE_POSITIVE -> %d worth reviewing",
-            bounty.project_name, len(findings), verified_count, inconclusive_count, false_pos_count, len(worth_reviewing),
-        )
-        # Rate limit: sleep between bounties to stay under Gemini's 20 req/min
-        import time as _time
-        _time.sleep(5)
-    else:
-        # No doubt review — all findings with confidence >= 0.5 are shown
-        result["submittable_count"] = sum(1 for f in findings if f.confidence >= 0.5)
+    # Only VERIFIED findings are shown to user (INCONCLUSIVE logged but not shown)
+    verified_findings = [f for f in findings if f.verdict == "VERIFIED"]
+    result["reviewed_findings"] = [f.to_dict() for f in findings]
+    result["submittable_count"] = len(verified_findings)
+
+    verified_count = len(verified_findings)
+    inconclusive_count = sum(1 for f in findings if f.verdict == "INCONCLUSIVE")
+    log.info(
+        "[%s] %d findings -> %d VERIFIED, %d INCONCLUSIVE -> %d for user review",
+        bounty.project_name, len(findings), verified_count, inconclusive_count, verified_count,
+    )
 
     return result
 
@@ -156,15 +146,15 @@ def create_finding_issues(analysis_results: list[dict[str, Any]], gh: GitHubClie
         if result["submittable_count"] == 0:
             continue
 
-        # Find ALL findings worth showing — VERIFIED + INCONCLUSIVE (not FALSE_POSITIVE)
+        # Only show VERIFIED findings to user
         submittable = []
         if "reviewed_findings" in result and result["reviewed_findings"]:
             submittable = [
-                r for r in result["reviewed_findings"]
-                if r.get("verdict") in ("VERIFIED", "INCONCLUSIVE")
+                f for f in result["reviewed_findings"]
+                if f.get("verdict") == "VERIFIED"
             ]
         else:
-            submittable = [f for f in result["findings"] if f.get("confidence", 0) >= 0.5]
+            submittable = []
 
         if not submittable:
             continue
@@ -332,16 +322,15 @@ def main() -> int:
             try:
                 result = analyze_bounty(bounty)
                 analysis_results.append(result)
-                # Telegram notification for each finding
+                # Telegram notification ONLY for VERIFIED findings
                 if result["submittable_count"] > 0:
                     for f in result.get("reviewed_findings", []):
-                        if f.get("recommendation") == "submit":
-                            orig = f.get("original", {})
+                        if f.get("verdict") == "VERIFIED":
                             tg.send_finding(
                                 project=bounty.project_name,
-                                title=orig.get("title", "Unknown"),
-                                severity=orig.get("severity", "Info"),
-                                confidence=f.get("confidence_adjusted", 0),
+                                title=f.get("title", "Unknown"),
+                                severity=f.get("severity", "Info"),
+                                confidence=f.get("confidence", 0),
                                 url=bounty.url,
                             )
             except Exception as exc:

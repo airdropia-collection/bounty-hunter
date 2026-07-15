@@ -1,19 +1,12 @@
 """
 Telegram bot notifier.
 
-Sends live notifications to the user's Telegram so they always know
-what the bot is doing — without having to check GitHub Actions.
+Sends live notifications to the user's Telegram.
 
 Setup:
 1. Create a bot via @BotFather on Telegram → get BOT_TOKEN
-2. Send a message to your bot → get CHAT_ID
+2. Send /start to your bot → get CHAT_ID via getUpdates
 3. Add as GitHub Secrets: TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
-
-Usage:
-    from src.utils.telegram import TelegramNotifier
-    tg = TelegramNotifier()
-    tg.send("🎯 Pipeline started — scanning 323 bounties")
-    tg.send_finding("LayerZero reentrancy found!", severity="High")
 """
 from __future__ import annotations
 
@@ -32,69 +25,97 @@ class TelegramNotifier:
     BASE_URL = "https://api.telegram.org"
 
     def __init__(self, token: str | None = None, chat_id: str | None = None):
-        self.token = token or os.getenv("TELEGRAM_BOT_TOKEN", "")
-        self.chat_id = chat_id or os.getenv("TELEGRAM_CHAT_ID", "")
+        # Strip whitespace — GitHub Secrets sometimes have trailing spaces
+        self.token = (token or os.getenv("TELEGRAM_BOT_TOKEN", "")).strip()
+        self.chat_id = (chat_id or os.getenv("TELEGRAM_CHAT_ID", "")).strip()
         self._dry_run = not self.token or not self.chat_id
-        self._verified = False  # will be True after first successful send or diagnostic
+        self._bot_username = ""
+
         if self._dry_run:
             log.info("Telegram in DRY-RUN mode (no TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID)")
-        else:
-            # Run diagnostic on init
-            self._diagnose()
+            return
 
-    def _diagnose(self) -> None:
-        """Diagnose Telegram setup — verify token + chat_id are correct."""
+        # Verify bot token (getMe) but DON'T permanently disable on failure
+        # — just log and try again on each send
+        self._verify_token()
+
+    def _verify_token(self) -> None:
+        """Verify bot token via getMe. Does NOT disable on failure."""
         import httpx
 
-        # Step 1: Verify bot token is valid
         try:
             resp = httpx.get(
                 f"{self.BASE_URL}/bot{self.token}/getMe",
                 timeout=10,
             )
-            if resp.status_code != 200:
-                log.error("Telegram: INVALID BOT TOKEN (getMe failed: %d)", resp.status_code)
-                self._dry_run = True
-                return
-
-            bot_info = resp.json().get("result", {})
-            bot_username = bot_info.get("username", "unknown")
-            log.info("Telegram bot verified: @%s", bot_username)
+            if resp.status_code == 200:
+                bot_info = resp.json().get("result", {})
+                self._bot_username = bot_info.get("username", "unknown")
+                log.info("Telegram bot verified: @%s", self._bot_username)
+            else:
+                log.warning("Telegram: getMe failed (%d) — will retry on send", resp.status_code)
         except Exception as exc:
-            log.error("Telegram: getMe failed: %s", exc)
-            self._dry_run = True
-            return
+            log.warning("Telegram: getMe error: %s — will retry on send", exc)
 
-        # Step 2: Try to send a test message to verify chat_id
+    def _log_available_chat_ids(self) -> None:
+        """Call getUpdates to find what chat_ids this bot can see.
+        This helps debug 403 Forbidden errors."""
+        import httpx
+
         try:
-            resp = httpx.post(
-                f"{self.BASE_URL}/bot{self.token}/sendMessage",
-                json={
-                    "chat_id": self.chat_id,
-                    "text": "🤖 Bounty Hunter bot connected successfully!",
-                    "parse_mode": "Markdown",
-                },
+            resp = httpx.get(
+                f"{self.BASE_URL}/bot{self.token}/getUpdates",
                 timeout=10,
             )
             if resp.status_code == 200:
-                self._verified = True
-                log.info("Telegram: ✅ Connected! Notifications will be sent to chat_id=%s", self.chat_id)
-            elif resp.status_code == 403:
-                err = resp.json().get("description", "Forbidden")
-                log.error("Telegram 403: %s", err)
-                log.error("Telegram 403 ROOT CAUSE: chat_id %s does not belong to bot @%s", self.chat_id, bot_username)
-                log.error("FIX: 1) Open Telegram → search @%s → send /start", bot_username)
-                log.error("FIX: 2) Open browser: https://api.telegram.org/bot<TOKEN>/getUpdates")
-                log.error("FIX: 3) Find your chat_id in the response → update TELEGRAM_CHAT_ID secret")
-                log.error("FIX: 4) The chat_id must come from THIS bot's getUpdates, not another bot")
-                self._dry_run = True  # disable further send attempts
+                data = resp.json()
+                updates = data.get("result", [])
+                if not updates:
+                    log.error(
+                        "Telegram getUpdates: NO updates found. "
+                        "User must send /start to bot @%s FIRST, "
+                        "THEN get the chat_id.",
+                        self._bot_username or "your_bot",
+                    )
+                    return
+
+                chat_ids = set()
+                for update in updates:
+                    msg = update.get("message") or update.get("edited_message")
+                    if msg:
+                        chat = msg.get("chat", {})
+                        cid = chat.get("id")
+                        ctype = chat.get("type")
+                        cuser = chat.get("first_name", "")
+                        if cid:
+                            chat_ids.add((cid, ctype, cuser))
+
+                log.error(
+                    "Telegram getUpdates: found %d chat(s) that sent messages to this bot:",
+                    len(chat_ids),
+                )
+                for cid, ctype, cuser in chat_ids:
+                    # Show partial chat_id for privacy: first 4 + last 4 digits
+                    cid_str = str(cid)
+                    masked = cid_str[:4] + "..." + cid_str[-4:] if len(cid_str) > 8 else cid_str
+                    log.error(
+                        "  → chat_id=%s (type=%s, user=%s) — %s",
+                        masked, ctype, cuser,
+                        "✅ MATCHES your secret" if str(cid) == self.chat_id else "❌ does NOT match TELEGRAM_CHAT_ID",
+                    )
+
+                if not any(str(cid) == self.chat_id for cid, _, _ in chat_ids):
+                    log.error(
+                        "ROOT CAUSE: TELEGRAM_CHAT_ID=%s does NOT match any chat that messaged this bot!",
+                        self.chat_id[:4] + "..." + self.chat_id[-4:] if len(self.chat_id) > 8 else self.chat_id,
+                    )
+                    log.error(
+                        "FIX: Update TELEGRAM_CHAT_ID secret to one of the chat_ids listed above"
+                    )
             else:
-                err = resp.json().get("description", resp.text[:200])
-                log.error("Telegram: sendMessage test failed: %d %s", resp.status_code, err)
-                self._dry_run = True
+                log.error("Telegram getUpdates failed: %d", resp.status_code)
         except Exception as exc:
-            log.error("Telegram: diagnostic send failed: %s", exc)
-            self._dry_run = True
+            log.error("Telegram getUpdates error: %s", exc)
 
     @property
     def is_configured(self) -> bool:
@@ -102,12 +123,8 @@ class TelegramNotifier:
 
     @retry_network(max_attempts=2, base_delay=1.0, max_delay=5.0)
     def send(self, text: str, parse_mode: str = "Markdown") -> bool:
-        """Send a text message to Telegram.
-
-        Returns True if sent, False if dry-run or failed.
-        """
-        # Sanitize — no secrets in Telegram messages
-        text = sanitize(text, max_len=4000)  # Telegram limit is 4096
+        """Send a text message to Telegram."""
+        text = sanitize(text, max_len=4000)
 
         if self._dry_run:
             log.info("[TG-DRY] %s", text[:100])
@@ -123,30 +140,37 @@ class TelegramNotifier:
             "disable_web_page_preview": True,
         }
 
-        resp = httpx.post(url, json=payload, timeout=15)
-        if resp.status_code != 200:
-            # Log full error for debugging 403 Forbidden
+        try:
+            resp = httpx.post(url, json=payload, timeout=15)
+            if resp.status_code == 200:
+                log.debug("Telegram message sent: %s", text[:80])
+                return True
+
+            # Handle errors
             try:
                 err_data = resp.json()
                 err_desc = err_data.get("description", resp.text[:200])
             except Exception:
                 err_desc = resp.text[:200]
-            log.error("Telegram send failed: %d %s", resp.status_code, err_desc)
-            # 403 = bot can't message this chat_id (user hasn't /started the bot)
+
             if resp.status_code == 403:
-                log.error("Telegram 403: Make sure you sent /start to your bot!")
+                # 403 = bot can't message this chat_id
+                # Run diagnostic ONCE to show available chat_ids
+                log.error("Telegram 403: %s", err_desc)
+                self._log_available_chat_ids()
+            else:
+                log.error("Telegram send failed: %d %s", resp.status_code, err_desc)
+
+            return False
+        except Exception as exc:
+            log.error("Telegram send error: %s", exc)
             return False
 
-        log.debug("Telegram message sent: %s", text[:80])
-        return True
-
     def send_pipeline_start(self, platform: str, max_bounties: int) -> None:
-        """Notify: pipeline started."""
         self.send(
             f"🤖 *Pipeline Started*\n"
             f"Platform: `{platform}`\n"
-            f"Max bounties: {max_bounties}\n"
-            f"Mode: dry-run (safe)"
+            f"Max bounties: {max_bounties}"
         )
 
     def send_pipeline_complete(
@@ -155,14 +179,12 @@ class TelegramNotifier:
         total_findings: int,
         submittable: int,
     ) -> None:
-        """Notify: pipeline completed."""
         emoji = "🎯" if submittable > 0 else "✅"
         self.send(
             f"{emoji} *Pipeline Complete*\n"
-            f"Bounties scraped: {total_bounties}\n"
+            f"Bounties: {total_bounties}\n"
             f"Findings: {total_findings}\n"
-            f"Submittable: {submittable}\n"
-            f"{'⚠️ Findings need your review!' if submittable > 0 else 'No actionable findings.'}"
+            f"Verified: {submittable}"
         )
 
     def send_finding(
@@ -173,7 +195,6 @@ class TelegramNotifier:
         confidence: float,
         url: str = "",
     ) -> None:
-        """Notify: a vulnerability finding was found."""
         severity_emoji = {
             "Critical": "🔴",
             "High": "🟠",
@@ -183,18 +204,17 @@ class TelegramNotifier:
         }.get(severity, "❓")
 
         msg = (
-            f"{severity_emoji} *Finding: {project}*\n"
+            f"{severity_emoji} *VERIFIED Finding: {project}*\n"
             f"Title: {title}\n"
             f"Severity: {severity}\n"
             f"Confidence: {confidence:.0%}\n"
         )
         if url:
             msg += f"[View bounty]({url})\n"
-        msg += f"\nReview on GitHub Issues → `/submit` or `/reject`"
+        msg += f"\nReview on GitHub → `/submit` or `/reject`"
         self.send(msg)
 
     def send_error(self, error: str, context: str = "") -> None:
-        """Notify: an error occurred."""
         error = sanitize(error, max_len=500)
         msg = "❌ *Error*\n"
         if context:
@@ -203,14 +223,10 @@ class TelegramNotifier:
         self.send(msg)
 
     def send_operator_needed(self, title: str, issue_url: str = "") -> None:
-        """Notify: operator (you) needs to take action."""
-        msg = (
-            "🚨 *OPERATOR NEEDED*\n"
-            f"{title}\n"
-        )
+        msg = "🚨 *OPERATOR NEEDED*\n" + title + "\n"
         if issue_url:
             msg += f"[Open Issue]({issue_url})\n"
-        msg += f"\nWake the AI operator in chat to resolve this."
+        msg += "\nWake the AI operator in chat to resolve."
         self.send(msg)
 
 
