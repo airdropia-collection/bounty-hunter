@@ -18,7 +18,6 @@ Usage:
 from __future__ import annotations
 
 import os
-from typing import Optional
 
 from src.utils.logger import get_logger
 from src.utils.retry import retry_network
@@ -32,7 +31,7 @@ class TelegramNotifier:
 
     BASE_URL = "https://api.telegram.org"
 
-    def __init__(self, token: Optional[str] = None, chat_id: Optional[str] = None):
+    def __init__(self, token: str | None = None, chat_id: str | None = None):
         self.token = token or os.getenv("TELEGRAM_BOT_TOKEN", "")
         self.chat_id = chat_id or os.getenv("TELEGRAM_CHAT_ID", "")
         self._dry_run = not self.token or not self.chat_id
@@ -149,7 +148,7 @@ class TelegramNotifier:
 
 
 # Singleton
-_notifier: Optional[TelegramNotifier] = None
+_notifier: TelegramNotifier | None = None
 
 
 def get_notifier() -> TelegramNotifier:

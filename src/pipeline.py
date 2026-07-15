@@ -23,8 +23,6 @@ from src.analyzers.contract_downloader import ContractDownloader
 from src.analyzers.doubt_review import DoubtReviewer
 from src.analyzers.vuln_detector import VulnerabilityDetector
 from src.config import CONFIG
-from src.reporters.drafter import ReportDrafter
-from src.reporters.poc_generator import PoCGenerator
 from src.scrapers.base import Bounty
 from src.scrapers.code4rena import Code4renaScraper
 from src.scrapers.immunefi import ImmunefiScraper
