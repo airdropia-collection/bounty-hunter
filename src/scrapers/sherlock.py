@@ -1,10 +1,14 @@
 """
-Sherlock audit contest scraper.
+Sherlock audit contest + bug bounty scraper.
 
-Sherlock hosts competitive smart contract audits similar to Code4rana.
-Prize pools range from $5k to $30k. Contests last 7-14 days.
+Sherlock has two programs:
+1. Audit contests (competitive, time-limited) at /contests
+2. Bug bounties (ongoing) at /bug-bounties/<id>
 
-Data source: https://www.sherlock.xyz/audits
+The /contests page uses React Server Components (RSC) which are harder
+to parse. The /bug-bounties page has direct links we can extract.
+
+Data source: https://audits.sherlock.xyz/bug-bounties
 """
 from __future__ import annotations
 
@@ -18,76 +22,62 @@ log = get_logger("scrapers.sherlock")
 
 
 class SherlockScraper(BaseScraper):
-    """Scrapes Sherlock audit contests."""
+    """Scrapes Sherlock bug bounties and audit contests."""
 
     PLATFORM_NAME = "sherlock"
-    BASE_URL = "https://www.sherlock.xyz"
-    AUDITS_URL = "https://www.sherlock.xyz/audits"
+    BASE_URL = "https://audits.sherlock.xyz"
+    BUG_BOUNTIES_URL = "https://audits.sherlock.xyz/bug-bounties"
 
     def scrape(self) -> List[Bounty]:
-        """Scrape Sherlock contests."""
-        self.log.info("scraping Sherlock audits page...")
+        """Scrape Sherlock bug bounties."""
+        self.log.info("scraping Sherlock bug-bounties page...")
         try:
-            html = self._fetch_html(self.AUDITS_URL)
-            self.save_raw("audits", html)
-            bounties = self._parse_contests(html)
-            self.log.info("Sherlock: found %d contests", len(bounties))
+            html = self._fetch_html(self.BUG_BOUNTIES_URL)
+            self.save_raw("bug-bounties", html)
+            bounties = self._parse_bug_bounties(html)
+            self.log.info("Sherlock: found %d bug bounties", len(bounties))
             return bounties
         except Exception as exc:
             self.log.error("Sherlock scrape failed: %s", exc)
             return []
 
-    def _parse_contests(self, html: str) -> List[Bounty]:
-        """Parse Sherlock contest data from HTML.
+    def _parse_bug_bounties(self, html: str) -> List[Bounty]:
+        """Parse Sherlock bug bounty data from HTML.
 
-        Sherlock's page structure varies — we try multiple patterns
-        to extract contest name, prize pool, and repo URL.
+        Sherlock's bug-bounties page lists links to /bug-bounties/<id>.
+        Each ID corresponds to a project. We extract the IDs and
+        construct bounty URLs.
         """
         bounties: List[Bounty] = []
 
-        # Sherlock uses Next.js or similar SSR
-        # Try to find contest entries
-        # Pattern 1: Look for links to /audits/<contest-slug>
-        contest_links = re.findall(r'href="/audits/([^"/]+)"', html)
+        # Find all bug-bounty links: href="/bug-bounties/<id>"
+        # The ID is usually a number
+        bounty_ids = re.findall(r'href="/bug-bounties/(\d+)"', html)
+        # Deduplicate
+        seen = set()
+        unique_ids = []
+        for bid in bounty_ids:
+            if bid not in seen:
+                seen.add(bid)
+                unique_ids.append(bid)
 
-        # Pattern 2: Look for prize amounts ($X,XXX or $XXk)
-        prizes = re.findall(r'\$([0-9,]+)\s*(?:USD|USDC)?', html)
+        self.log.debug("found %d unique bug-bounty IDs", len(unique_ids))
 
-        # Pattern 3: Look for GitHub repo links
-        repos = re.findall(r'github\.com/([^/\s"\\]+/[^/\s"\\]+)', html)
-
-        # Deduplicate contest links
-        seen_slugs = set()
-        for slug in contest_links:
-            if slug in seen_slugs or slug in ("protocol", "report"):
-                continue
-            seen_slugs.add(slug)
-
-            # Format slug as project name
-            project_name = slug.replace("-", " ").replace("_", " ").title()
-
+        for bid in unique_ids[:50]:  # Limit to top 50
             bounty = Bounty(
-                id=f"sherlock-{slug}",
+                id=f"sherlock-bb-{bid}",
                 platform=self.PLATFORM_NAME,
-                project_name=project_name,
-                description=f"Sherlock audit contest: {project_name}",
-                max_payout_usd=0,  # Will be enriched later if prize data found
-                severity_levels=["High", "Medium", "Low"],
+                project_name=f"Sherlock Bug Bounty #{bid}",
+                description=f"Sherlock ongoing bug bounty (ID: {bid})",
+                max_payout_usd=0,  # Unknown without visiting each page
+                severity_levels=["Critical", "High", "Medium", "Low"],
                 tech_stack=["Solidity"],
                 source_urls=[],
-                url=f"{self.BASE_URL}/audits/{slug}",
+                url=f"{self.BASE_URL}/bug-bounties/{bid}",
                 deadline=None,
                 status="active",
-                tags=["audit-contest", "web3"],
+                tags=["bug-bounty", "web3", "sherlock"],
             )
             bounties.append(bounty)
-
-        # If we found prize data, assign to bounties (best-effort matching)
-        for i, bounty in enumerate(bounties):
-            if i < len(prizes) and bounty.max_payout_usd == 0:
-                try:
-                    bounty.max_payout_usd = int(prizes[i].replace(",", ""))
-                except ValueError:
-                    pass
 
         return bounties

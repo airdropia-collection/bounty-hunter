@@ -5,7 +5,10 @@ Code4rana hosts competitive smart contract audits where multiple
 security researchers compete for a prize pool. Contests typically
 last 7-14 days with prize pools of $2k-$50k.
 
-Data source: https://code4rena.com/contests (Next.js SSR page)
+Data source: https://code4rena.com/contests
+The page embeds contest data in Next.js __NEXT_DATA__ with escaped
+JSON. Fields: title, slug, repo. Prize amounts appear as visible
+text ($X,XXX) in the HTML, not in the JSON.
 """
 from __future__ import annotations
 
@@ -35,56 +38,52 @@ class Code4renaScraper(BaseScraper):
             self.log.info("Code4rana: found %d contests", len(bounties))
             return bounties
         except Exception as exc:
-            self.log.error("Code4rana scrape failed: %s", exc)
+            self.log.error("Code4rena scrape failed: %s", exc)
             return []
 
     def _parse_contests(self, html: str) -> List[Bounty]:
         """Parse Code4rana contest data from HTML.
 
-        Code4rana embeds contest data in Next.js __NEXT_DATA__.
-        We look for: title, slug, prize pool, start/end dates, repo URL.
+        Code4rena embeds data in Next.js __NEXT_DATA__ with escaped JSON.
+        We extract:
+        - title (from JSON: \"title\":\"K2\")
+        - slug (from JSON: \"slug\":\"2026-04-k2\")
+        - repo (from JSON: \"repo\":\"https://github.com/code-423n4/...\")
+        - amount (from visible text: $135,000)
         """
         bounties: List[Bounty] = []
 
-        # Code4rana uses Next.js — data in __NEXT_DATA__ script
-        # Try to find contest objects
-        # Pattern: {"title":"...","slug":"...","amount":"$X USD",...}
-
-        # Extract titles
+        # Extract from escaped JSON
         titles = re.findall(r'\\"title\\":\\"([^\\]+)\\"', html)
-        # Extract slugs
         slugs = re.findall(r'\\"slug\\":\\"([^\\]+)\\"', html)
-        # Extract prize amounts (format: "$25,000 USD" or "$2k USDC")
-        prizes = re.findall(r'\\"amount\\":\\"\\\$([0-9,]+)\s*USD\\"', html)
-        # Extract repo URLs
         repos = re.findall(r'\\"repo\\":\\"([^\\]+)\\"', html)
+
+        # Extract prize amounts from visible text: $135,000 or $22,000 USD
+        amounts = re.findall(r'\$([0-9,]+)\s*(?:USD|USDC|USDT)?', html)
 
         count = min(len(titles), len(slugs))
         self.log.debug(
-            "raw fields: titles=%d, slugs=%d, prizes=%d, repos=%d",
-            len(titles), len(slugs), len(prizes), len(repos),
+            "raw fields: titles=%d, slugs=%d, repos=%d, amounts=%d",
+            len(titles), len(slugs), len(repos), len(amounts),
         )
 
         for i in range(count):
             title = titles[i]
             slug = slugs[i]
 
-            # Parse prize amount
+            # Parse prize amount (best-effort matching — amounts are in
+            # document order, may not perfectly align with contests)
             max_payout = 0
-            if i < len(prizes):
-                prize_str = prizes[i].replace(",", "")
+            if i < len(amounts):
                 try:
-                    max_payout = int(prize_str)
+                    max_payout = int(amounts[i].replace(",", ""))
                 except ValueError:
                     pass
 
             # Parse repo URL
             source_urls: List[str] = []
             if i < len(repos) and repos[i]:
-                repo = repos[i]
-                if not repo.startswith("http"):
-                    repo = f"https://github.com/{repo}"
-                source_urls.append(repo)
+                source_urls.append(repos[i])
 
             bounty = Bounty(
                 id=f"code4rena-{slug}",
