@@ -115,6 +115,7 @@ def analyze_bounty(bounty: Bounty) -> dict[str, Any]:
     # 2. AI vulnerability detection + verification (merged — single AI call)
     # The detector now does detection AND 10-step verification in one pass
     # Only VERIFIED and INCONCLUSIVE findings are returned (FALSE_POSITIVEs discarded)
+    detector = VulnerabilityDetector()
     findings = detector.analyze(source_code, bounty.project_name)
     result["findings"] = [f.to_dict() for f in findings]
 
