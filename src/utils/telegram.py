@@ -29,10 +29,17 @@ class TelegramNotifier:
         raw_token = token or os.getenv("TELEGRAM_BOT_TOKEN", "")
         self.token = "".join(raw_token.split())  # remove ALL whitespace
 
-        # Strip ALL non-numeric characters from chat_id
-        # Telegram displays ID as "8 753 657 989" with spaces — must become "8753657989"
+        # Clean chat_id: remove spaces (Telegram displays ID with spaces)
+        # BUT preserve the leading minus sign — channel IDs start with -100
+        # e.g. "-100 4123 4567 890" → "-10041234567890"
         raw_chat_id = chat_id or os.getenv("TELEGRAM_CHAT_ID", "")
-        self.chat_id = "".join(c for c in raw_chat_id if c.isdigit())  # digits only
+        # Remove all whitespace, then ensure only digits and leading minus
+        cleaned = "".join(raw_chat_id.split())  # remove all whitespace
+        # Keep leading minus if present, then strip any non-digits after
+        if cleaned.startswith("-"):
+            self.chat_id = "-" + "".join(c for c in cleaned[1:] if c.isdigit())
+        else:
+            self.chat_id = "".join(c for c in cleaned if c.isdigit())
 
         self._dry_run = not self.token or not self.chat_id
         self._bot_username = ""

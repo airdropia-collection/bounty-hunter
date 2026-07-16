@@ -15,8 +15,13 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
-          # Strip all non-digits from chat_id
-          CHAT_ID=$(echo "$TELEGRAM_CHAT_ID" | tr -cd '0-9')
+          # Clean chat_id: remove spaces but keep leading minus (channel IDs start with -100)
+          CHAT_ID=$(echo "$TELEGRAM_CHAT_ID" | tr -d '[:space:]')
+          if [[ "$CHAT_ID" == -* ]]; then
+            CHAT_ID="-$(echo "${CHAT_ID:1}" | tr -cd '0-9')"
+          else
+            CHAT_ID=$(echo "$CHAT_ID" | tr -cd '0-9')
+          fi
 
           # List of PRs we've submitted (repo:pr_number)
           # This is maintained in state/prs_tracked.txt in the repo

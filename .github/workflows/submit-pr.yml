@@ -56,8 +56,14 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
-          # Strip all non-digits from chat_id (Telegram displays ID with spaces)
-          CHAT_ID=$(echo "$TELEGRAM_CHAT_ID" | tr -cd '0-9')
+          # Clean chat_id: remove spaces but keep leading minus (channel IDs start with -100)
+          CHAT_ID=$(echo "$TELEGRAM_CHAT_ID" | tr -d '[:space:]')
+          # Ensure format: optional leading minus + digits only
+          if [[ "$CHAT_ID" == -* ]]; then
+            CHAT_ID="-$(echo "${CHAT_ID:1}" | tr -cd '0-9')"
+          else
+            CHAT_ID=$(echo "$CHAT_ID" | tr -cd '0-9')
+          fi
           MSG="🚀 *PR Submitted!*\n\n*Repo:* \`${UPSTREAM_REPO}\`\n*PR:* #${PR_NUMBER}\n*Title:* ${{ github.event.inputs.pr_title }}\n*URL:* ${PR_URL}\n\n⏳ Waiting for maintainer review..."
           curl -sS -X POST \
             "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
