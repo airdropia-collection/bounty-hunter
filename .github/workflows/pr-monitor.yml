@@ -29,6 +29,8 @@ jobs:
           declare -A PRS
           PRS["jwallet/spy-spotify"]="535"
           PRS["zhangjiayang6835-cyber/ai-research"]="1231"
+          PRS["xevrion-v2/agent-playground"]="7865"
+          PRS["xevrion-v2/agent-playground"]="7866"
 
           for repo in "${!PRS[@]}"; do
             pr_num=${PRS[$repo]}
