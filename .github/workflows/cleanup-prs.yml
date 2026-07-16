@@ -1,0 +1,46 @@
+name: 🧹 Close Duplicate PRs
+
+on:
+  workflow_dispatch:
+    inputs:
+      repo:
+        description: 'Repo (owner/repo)'
+        required: true
+      pr_numbers:
+        description: 'Comma-separated PR numbers to close'
+        required: true
+      reason:
+        description: 'Close reason'
+        required: true
+
+jobs:
+  close:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Close PRs
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: |
+          IFS=',' read -ra PRS <<< "${{ github.event.inputs.pr_numbers }}"
+          for pr in "${PRS[@]}"; do
+            pr=$(echo "$pr" | tr -d ' ')
+            echo "Closing PR #$pr on ${{ github.event.inputs.repo }}..."
+            
+            # Add comment
+            curl -sS -X POST \
+              -H "Authorization: Bearer $GH_PAT" \
+              -H "Accept: application/vnd.github+json" \
+              -d "{\"body\": \"Closing this PR as duplicate. ${{ github.event.inputs.reason }}\"}" \
+              "https://api.github.com/repos/${{ github.event.inputs.repo }}/issues/$pr/comments" \
+              -o /dev/null -w "  comment: HTTP %{http_code}\n"
+            
+            # Close PR
+            curl -sS -X PATCH \
+              -H "Authorization: Bearer $GH_PAT" \
+              -H "Accept: application/vnd.github+json" \
+              -d '{"state":"closed","state_reason":"not_planned"}' \
+              "https://api.github.com/repos/${{ github.event.inputs.repo }}/issues/$pr" \
+              -o /dev/null -w "  close: HTTP %{http_code}\n"
+            
+            sleep 1
+          done
