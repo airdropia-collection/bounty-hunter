@@ -23,6 +23,8 @@ from src.analyzers.contract_downloader import ContractDownloader
 from src.analyzers.vuln_detector import VulnerabilityDetector
 from src.config import CONFIG
 from src.scrapers.base import Bounty
+from src.scrapers.algora import AlgoraScraper
+from src.scrapers.bountycaster import BountycasterScraper
 from src.scrapers.code4rena import Code4renaScraper
 from src.scrapers.immunefi import ImmunefiScraper
 from src.scrapers.issuehunt import IssueHuntScraper
@@ -35,12 +37,33 @@ from src.utils.telegram import get_notifier
 
 log = get_logger("pipeline")
 
-SCRAPER_MAP = {
+# ──────────────────────────────────────────────────────────────────── #
+# VERIFIED-PLATFORMS-ONLY POLICY (user directive 2026-07-16)
+# Only these three escrow platforms are scraped by default.
+# Random GitHub issues claiming cash rewards are IGNORED unless they
+# appear via one of these platforms.
+# ──────────────────────────────────────────────────────────────────── #
+VERIFIED_SCRAPER_MAP = {
+    "issuehunt": IssueHuntScraper,
+    "algora": AlgoraScraper,
+    "bountycaster": BountycasterScraper,
+}
+
+# Legacy platforms (Immunefi / Code4rena / Sherlock) — kept for manual
+# invocation via `--platform immunefi` etc., but NOT included when
+# `--platform all` is used. Set INCLUDE_LEGACY_SCRAPERS=true to include.
+LEGACY_SCRAPER_MAP = {
     "immunefi": ImmunefiScraper,
     "code4rena": Code4renaScraper,
     "sherlock": SherlockScraper,
-    "issuehunt": IssueHuntScraper,
 }
+
+# Final SCRAPER_MAP: verified by default, plus legacy if env var set
+import os as _os
+if _os.getenv("INCLUDE_LEGACY_SCRAPERS", "false").lower() == "true":
+    SCRAPER_MAP = {**VERIFIED_SCRAPER_MAP, **LEGACY_SCRAPER_MAP}
+else:
+    SCRAPER_MAP = dict(VERIFIED_SCRAPER_MAP)
 
 
 def scrape_platform(platform_name: str, max_bounties: int = 10) -> list[Bounty]:
