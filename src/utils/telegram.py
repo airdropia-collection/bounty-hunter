@@ -259,6 +259,113 @@ class TelegramNotifier:
         msg += "\nWake the AI operator in chat to resolve."
         self.send(msg)
 
+    # ------------------------------------------------------------------ #
+    # LIVE PULSE — 4 structured event categories
+    # ------------------------------------------------------------------ #
+
+    def send_scanning_event(
+        self,
+        repo: str,
+        issue_title: str,
+        bounty_value: str,
+        tech_stack: str,
+        issue_url: str = "",
+    ) -> None:
+        """Category 1: 🔍 SCANNING — when a new high-quality target is picked."""
+        msg = (
+            f"🔍 *SCANNING TARGET*\n"
+            f"━━━━━━━━━━━━━━━━━━\n"
+            f"📦 *Repo:* `{repo}`\n"
+            f"📝 *Issue:* {issue_title}\n"
+            f"💰 *Bounty:* {bounty_value}\n"
+            f"🔧 *Stack:* {tech_stack}\n"
+        )
+        if issue_url:
+            msg += f"🔗 [View Issue]({issue_url})\n"
+        msg += f"━━━━━━━━━━━━━━━━━━\n"
+        msg += f"_Analyzing codebase for vulnerabilities..._"
+        self.send(msg)
+
+    def send_filter_event(
+        self,
+        repo: str,
+        reason: str,
+        details: str = "",
+    ) -> None:
+        """Category 2: 🛡️ FILTER — when Golden Rules trigger and skip/close spam."""
+        msg = (
+            f"🛡️ *FILTER TRIGGERED*\n"
+            f"━━━━━━━━━━━━━━━━━━\n"
+            f"📦 *Repo:* `{repo}`\n"
+            f"⚠️ *Action:* {reason}\n"
+        )
+        if details:
+            msg += f"📋 *Details:* {details}\n"
+        msg += f"━━━━━━━━━━━━━━━━━━\n"
+        msg += f"_Golden Rules active — spam filtered_"
+        self.send(msg)
+
+    def send_pr_submission(
+        self,
+        repo: str,
+        pr_url: str,
+        pr_number: str,
+        fix_description: str,
+        bounty_value: str = "",
+    ) -> None:
+        """Category 3: 🚀 PR SUBMISSION — when a genuine fix is submitted."""
+        msg = (
+            f"🚀 *PR SUBMITTED*\n"
+            f"━━━━━━━━━━━━━━━━━━\n"
+            f"📦 *Repo:* `{repo}`\n"
+            f"🔀 *PR:* #{pr_number}\n"
+            f"🔗 [View PR]({pr_url})\n"
+            f"📝 *Fix:* {fix_description}\n"
+        )
+        if bounty_value:
+            msg += f"💰 *Target:* {bounty_value}\n"
+        msg += f"━━━━━━━━━━━━━━━━━━\n"
+        msg += f"_Waiting for maintainer review..._"
+        self.send(msg)
+
+    def send_success_payout(
+        self,
+        repo: str,
+        pr_number: str,
+        action: str,
+        bounty_value: str = "",
+    ) -> None:
+        """Category 4: 🎉 SUCCESS — when PR gets reviewed, approved, or merged."""
+        if action.lower() == "merged":
+            emoji = "🎉"
+            title = "PR MERGED!"
+            payout_note = "💰 *Bounty payout may be processing on IssueHunt!*"
+        elif action.lower() == "approved":
+            emoji = "✅"
+            title = "PR APPROVED!"
+            payout_note = "⏳ *Awaiting merge — payout incoming!*"
+        elif action.lower() == "reviewed":
+            emoji = "👀"
+            title = "PR UNDER REVIEW!"
+            payout_note = "⏳ *Maintainer is reviewing — stay tuned!*"
+        else:
+            emoji = "📢"
+            title = f"PR {action.upper()}!"
+            payout_note = ""
+
+        msg = (
+            f"{emoji} *{title}*\n"
+            f"━━━━━━━━━━━━━━━━━━\n"
+            f"📦 *Repo:* `{repo}`\n"
+            f"🔀 *PR:* #{pr_number}\n"
+        )
+        if bounty_value:
+            msg += f"💰 *Bounty:* {bounty_value}\n"
+        if payout_note:
+            msg += f"\n{payout_note}\n"
+        msg += f"━━━━━━━━━━━━━━━━━━"
+        self.send(msg)
+
 
 # Singleton
 _notifier: TelegramNotifier | None = None
