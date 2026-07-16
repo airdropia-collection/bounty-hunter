@@ -1,0 +1,52 @@
+name: 📢 Notify Channel
+
+# Generic one-shot Telegram notification workflow.
+# Used to push system alerts (deployment confirmations, manual ops
+# messages, etc.) with the standard [Emergency Stop] / [Resume Flow]
+# inline control buttons.
+
+on:
+  workflow_dispatch:
+    inputs:
+      message:
+        description: 'Markdown message body (use \\n for newlines)'
+        required: true
+      parse_mode:
+        description: 'Parse mode (Markdown or HTML)'
+        default: 'Markdown'
+        type: choice
+        options: [Markdown, HTML]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Telegram message with control buttons
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          # Clean chat_id (preserve leading minus for channels)
+          CHAT_ID=$(echo "$TELEGRAM_CHAT_ID" | tr -d '[:space:]')
+          if [[ "$CHAT_ID" == -* ]]; then
+            CHAT_ID="-$(echo "${CHAT_ID:1}" | tr -cd '0-9')"
+          else
+            CHAT_ID=$(echo "$CHAT_ID" | tr -cd '0-9')
+          fi
+          # Convert literal \n to actual newlines
+          MSG=$(printf '%b' "${{ github.event.inputs.message }}")
+          # Inline keyboard (agent.md §2)
+          REPLY_MARKUP='{"inline_keyboard":[[{"text":"🛑 Emergency Stop","callback_data":"pause_system"},{"text":"▶️ Resume Flow","callback_data":"resume_system"}]]}'
+          PAYLOAD=$(jq -n \
+            --arg chat_id "$CHAT_ID" \
+            --arg text "$MSG" \
+            --arg parse_mode "${{ github.event.inputs.parse_mode }}" \
+            --argjson reply_markup "$REPLY_MARKUP" \
+            '{chat_id:$chat_id, text:$text, parse_mode:$parse_mode, disable_web_page_preview:true, reply_markup:$reply_markup}')
+          echo "Sending Telegram notification..."
+          curl -sS -X POST \
+            "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD"
+          echo ""
+          echo "Done."
