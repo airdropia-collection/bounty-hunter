@@ -1,0 +1,96 @@
+name: 👀 PR Monitor
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'  # Every 30 minutes
+  workflow_dispatch:
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check PR statuses and notify on changes
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          # Strip all non-digits from chat_id
+          CHAT_ID=$(echo "$TELEGRAM_CHAT_ID" | tr -cd '0-9')
+
+          # List of PRs we've submitted (repo:pr_number)
+          # This is maintained in state/prs_tracked.txt in the repo
+          # Format: repo_owner/repo_name pr_number last_state
+          #
+          # We check each PR's current state and compare with last known state.
+          # If state changed (open→merged, open→closed), send Telegram notification.
+
+          # For now, hardcode our known PRs
+          declare -A PRS
+          PRS["jwallet/spy-spotify"]="535"
+          PRS["zhangjiayang6835-cyber/ai-research"]="1231"
+
+          for repo in "${!PRS[@]}"; do
+            pr_num=${PRS[$repo]}
+            echo "Checking $repo PR #$pr_num..."
+
+            # Get PR details
+            PR_DATA=$(curl -sS -H "Authorization: Bearer $GH_PAT" \
+              "https://api.github.com/repos/$repo/pulls/$pr_num" 2>/dev/null)
+
+            PR_STATE=$(echo "$PR_DATA" | python3 -c "import json,sys;print(json.load(sys.stdin).get('state','unknown'))" 2>/dev/null)
+            PR_MERGED=$(echo "$PR_DATA" | python3 -c "import json,sys;print(json.load(sys.stdin).get('merged',False))" 2>/dev/null)
+            PR_TITLE=$(echo "$PR_DATA" | python3 -c "import json,sys;print(json.load(sys.stdin).get('title','?')[:60])" 2>/dev/null)
+            PR_URL=$(echo "$PR_DATA" | python3 -c "import json,sys;print(json.load(sys.stdin).get('html_url','?'))" 2>/dev/null)
+
+            echo "  State: $PR_STATE | Merged: $PR_MERGED | Title: $PR_TITLE"
+
+            # Determine effective status
+            if [ "$PR_MERGED" = "True" ]; then
+              STATUS="MERGED"
+            elif [ "$PR_STATE" = "closed" ]; then
+              STATUS="CLOSED"
+            else
+              STATUS="OPEN"
+            fi
+
+            # Check if we already notified about this state
+            STATE_FILE="/tmp/pr_state_${repo//\//_}_${pr_num}.txt"
+            LAST_STATE=""
+            if [ -f "$STATE_FILE" ]; then
+              LAST_STATE=$(cat "$STATE_FILE")
+            fi
+
+            if [ "$STATUS" != "$LAST_STATE" ]; then
+              echo "  State changed: $LAST_STATE → $STATUS — sending notification!"
+
+              if [ "$STATUS" = "MERGED" ]; then
+                EMOJI="🎉"
+                MSG="${EMOJI} *PR MERGED!*\n\n*Repo:* \`$repo\`\n*PR:* #$pr_num\n*Title:* $PR_TITLE\n*URL:* $PR_URL\n\n💰 Bounty payout may be processing!"
+              elif [ "$STATUS" = "CLOSED" ]; then
+                EMOJI="❌"
+                MSG="${EMOJI} *PR CLOSED (not merged)*\n\n*Repo:* \`$repo\`\n*PR:* #$pr_num\n*Title:* $PR_TITLE\n*URL:* $PR_URL"
+              else
+                # First time seeing this PR — just log it
+                EMOJI="📌"
+                MSG=""
+              fi
+
+              if [ -n "$MSG" ]; then
+                curl -sS -X POST \
+                  "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+                  -H "Content-Type: application/json" \
+                  -d "{\"chat_id\": \"${CHAT_ID}\", \"text\": \"${MSG}\", \"parse_mode\": \"Markdown\", \"disable_web_page_preview\": true}" \
+                  || echo "Telegram notification failed (non-blocking)"
+              fi
+
+              # Save current state
+              echo "$STATUS" > "$STATE_FILE"
+            else
+              echo "  No change ($STATUS)"
+            fi
+
+            echo ""
+          done
+
+          echo "PR monitoring complete."
