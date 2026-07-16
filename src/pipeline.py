@@ -23,7 +23,6 @@ from src.analyzers.contract_downloader import ContractDownloader
 from src.analyzers.vuln_detector import VulnerabilityDetector
 from src.config import CONFIG
 from src.scrapers.base import Bounty
-from src.scrapers.algora import AlgoraScraper
 from src.scrapers.bountycaster import BountycasterScraper
 from src.scrapers.code4rena import Code4renaScraper
 from src.scrapers.immunefi import ImmunefiScraper
@@ -38,14 +37,16 @@ from src.utils.telegram import get_notifier
 log = get_logger("pipeline")
 
 # ──────────────────────────────────────────────────────────────────── #
-# VERIFIED-PLATFORMS-ONLY POLICY (user directive 2026-07-16)
-# Only these three escrow platforms are scraped by default.
+# VERIFIED-PLATFORMS-ONLY POLICY (user directive 2026-07-17)
+# Only these TWO escrow platforms are scraped by default.
 # Random GitHub issues claiming cash rewards are IGNORED unless they
 # appear via one of these platforms.
+#
+# ⚠️ Algora was REMOVED on 2026-07-17 (platform pivoted to recruiting).
+#    Do NOT re-add Algora unless it relaunches a public bounty board.
 # ──────────────────────────────────────────────────────────────────── #
 VERIFIED_SCRAPER_MAP = {
     "issuehunt": IssueHuntScraper,
-    "algora": AlgoraScraper,
     "bountycaster": BountycasterScraper,
 }
 

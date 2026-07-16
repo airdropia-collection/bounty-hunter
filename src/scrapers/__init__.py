@@ -1,13 +1,20 @@
 """Platform scrapers for bug bounty listings.
 
-VERIFIED-PLATFORMS-ONLY POLICY (per user directive 2026-07-16):
-The bot ONLY scrapes bounty listings from these three verified escrow
+VERIFIED-PLATFORMS-ONLY POLICY (per user directive 2026-07-16,
+updated 2026-07-17):
+
+The bot ONLY scrapes bounty listings from these two verified escrow
 platforms. Random GitHub issues claiming cash rewards are IGNORED
 unless they appear via one of these platforms:
 
-1. IssueHunt   — https://issuehunt.io/issues
-2. Algora      — https://algora.io/bounties (requires auth)
-3. Bountycaster — https://www.bountycaster.xyz (requires auth)
+1. IssueHunt    — https://issuehunt.io/issues (public, no auth)
+2. Bountycaster — https://www.bountycaster.xyz (requires NEYNAR_API_KEY
+                  or BOUNTYCASTER_AUTH_COOKIE)
+
+⚠️ Algora was REMOVED on 2026-07-17 because the platform has pivoted
+from a public bounty board to a recruiting marketplace. Its scraper
+module was dead weight and has been deleted. Do NOT re-add Algora
+unless it relaunches a public bounty board.
 
 The legacy Immunefi, Code4rena, and Sherlock scrapers are kept for
 manual reference but are NOT included in the default SCRAPER_MAP in
@@ -16,7 +23,6 @@ var to "true".
 """
 
 from .base import BaseScraper, Bounty
-from .algora import AlgoraScraper
 from .bountycaster import BountycasterScraper
 from .issuehunt import IssueHuntScraper
 
@@ -30,7 +36,6 @@ __all__ = [
     "Bounty",
     # Verified escrow platforms (default scraping)
     "IssueHuntScraper",
-    "AlgoraScraper",
     "BountycasterScraper",
     # Legacy platforms (manual only)
     "ImmunefiScraper",
