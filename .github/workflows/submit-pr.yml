@@ -1,0 +1,48 @@
+name: 🚀 Submit PR
+
+on:
+  workflow_dispatch:
+    inputs:
+      upstream_repo:
+        description: 'Upstream repo (owner/repo)'
+        required: true
+      upstream_branch:
+        description: 'Upstream base branch'
+        default: 'master'
+      fork_branch:
+        description: 'Fork branch with fix'
+        required: true
+      pr_title:
+        description: 'PR title'
+        required: true
+      pr_body:
+        description: 'PR body (single line)'
+        required: true
+
+jobs:
+  submit_pr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create PR via GitHub API
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: |
+          RESPONSE=$(curl -sS -X POST \
+            -H "Authorization: Bearer $GH_PAT" \
+            -H "Accept: application/vnd.github+json" \
+            -d "{
+              \"title\": \"${{ github.event.inputs.pr_title }}\",
+              \"head\": \"airdropia-collection:${{ github.event.inputs.fork_branch }}\",
+              \"base\": \"${{ github.event.inputs.upstream_branch }}\",
+              \"body\": \"${{ github.event.inputs.pr_body }}\"
+            }" \
+            "https://api.github.com/repos/${{ github.event.inputs.upstream_repo }}/pulls")
+          echo "$RESPONSE"
+          PR_URL=$(echo "$RESPONSE" | python3 -c "import json,sys;print(json.load(sys.stdin).get('html_url','FAILED'))" 2>/dev/null)
+          echo "PR_URL=$PR_URL" >> $GITHUB_ENV
+          if [ "$PR_URL" = "FAILED" ] || [ -z "$PR_URL" ]; then
+            echo "PR creation failed!"
+            exit 1
+          fi
+      - name: Result
+        run: echo "PR created at $PR_URL"
