@@ -1,0 +1,106 @@
+name: 🧹 Fork Cleanup
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'  # Every 6 hours
+  workflow_dispatch:
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete forks with no open PRs
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          # Clean chat_id
+          CHAT_ID=$(echo "$TELEGRAM_CHAT_ID" | tr -d '[:space:]')
+          if [[ "$CHAT_ID" == -* ]]; then
+            CHAT_ID="-$(echo "${CHAT_ID:1}" | tr -cd '0-9')"
+          else
+            CHAT_ID=$(echo "$CHAT_ID" | tr -cd '0-9')
+          fi
+
+          # Get all forks under airdropia-collection
+          FORKS=$(curl -sS -H "Authorization: Bearer $GH_PAT" \
+            "https://api.github.com/orgs/airdropia-collection/repos?per_page=100&type=forks")
+
+          echo "$FORKS" | python3 -c "
+          import json, sys, subprocess, os
+
+          forks = json.load(sys.stdin)
+          gh_pat = os.environ['GH_PAT']
+          chat_id = os.environ.get('CHAT_ID', '')
+          tg_token = os.environ.get('TELEGRAM_BOT_TOKEN', '')
+
+          for fork in forks:
+              if not fork.get('fork'):
+                  continue
+
+              fork_name = fork['full_name']
+              # Get parent repo
+              parent_url = fork.get('parent', {}).get('url', '')
+              if not parent_url:
+                  print(f'  SKIP {fork_name}: no parent info')
+                  continue
+
+              # Check if any PRs are open from our fork to parent
+              # Extract owner/repo from parent URL
+              parent_parts = parent_url.replace('https://api.github.com/repos/', '').split('/')
+              if len(parent_parts) < 2:
+                  continue
+              parent_owner = parent_parts[0]
+              parent_repo = parent_parts[1]
+              parent_full = f'{parent_owner}/{parent_repo}'
+
+              # Check open PRs
+              import urllib.request
+              req = urllib.request.Request(
+                  f'https://api.github.com/repos/{parent_full}/pulls?state=open&per_page=100',
+                  headers={'Authorization': f'Bearer {gh_pat}', 'Accept': 'application/vnd.github+json'}
+              )
+              try:
+                  resp = urllib.request.urlopen(req)
+                  prs = json.loads(resp.read())
+                  our_open_prs = [pr for pr in prs if 'airdropia' in pr.get('head', {}).get('label', '')]
+              except:
+                  our_open_prs = []
+
+              if our_open_prs:
+                  print(f'  KEEP {fork_name}: {len(our_open_prs)} open PR(s)')
+              else:
+                  print(f'  DELETE {fork_name}: no open PRs')
+                  # Delete the fork
+                  del_req = urllib.request.Request(
+                      f'https://api.github.com/repos/{fork_name}',
+                      method='DELETE',
+                      headers={'Authorization': f'Bearer {gh_pat}', 'Accept': 'application/vnd.github+json'}
+                  )
+                  try:
+                      del_resp = urllib.request.urlopen(del_req)
+                      print(f'    ✅ Deleted (HTTP {del_resp.status})')
+
+                      # Send Telegram notification
+                      if tg_token and chat_id:
+                          msg = f'🧹 *Fork Cleanup*\n━━━━━━━━━━━━━━━━━━\n📦 Deleted: \`{fork_name}\`\nReason: No open PRs remaining\n━━━━━━━━━━━━━━━━━━'
+                          tg_req = urllib.request.Request(
+                              f'https://api.telegram.org/bot{tg_token}/sendMessage',
+                              data=json.dumps({
+                                  'chat_id': chat_id,
+                                  'text': msg,
+                                  'parse_mode': 'Markdown',
+                                  'disable_web_page_preview': True
+                              }).encode(),
+                              headers={'Content-Type': 'application/json'}
+                          )
+                      try:
+                          urllib.request.urlopen(tg_req)
+                      except:
+                          pass
+                  except Exception as e:
+                      print(f'    ❌ Failed: {e}')
+          " 2>&1
+
+          echo "Fork cleanup complete."
