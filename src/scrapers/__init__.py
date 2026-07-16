@@ -3,6 +3,7 @@
 from .base import BaseScraper, Bounty
 from .code4rena import Code4renaScraper
 from .immunefi import ImmunefiScraper
+from .issuehunt import IssueHuntScraper
 from .sherlock import SherlockScraper
 
 __all__ = [
@@ -11,4 +12,5 @@ __all__ = [
     "ImmunefiScraper",
     "Code4renaScraper",
     "SherlockScraper",
+    "IssueHuntScraper",
 ]

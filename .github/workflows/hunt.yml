@@ -9,7 +9,7 @@ on:
         description: 'Platform to scrape (all = scrape everything)'
         default: 'all'
         type: choice
-        options: [all, immunefi, code4rana, sherlock, gitcoin]
+        options: [all, immunefi, code4rena, sherlock, issuehunt]
       dry_run:
         description: 'Dry run (no submissions, just analysis)'
         default: true

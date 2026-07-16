@@ -25,6 +25,7 @@ from src.config import CONFIG
 from src.scrapers.base import Bounty
 from src.scrapers.code4rena import Code4renaScraper
 from src.scrapers.immunefi import ImmunefiScraper
+from src.scrapers.issuehunt import IssueHuntScraper
 from src.scrapers.sherlock import SherlockScraper
 from src.utils.github_client import GitHubClient
 from src.utils.logger import get_logger, silence_noisy_libs
@@ -37,6 +38,7 @@ SCRAPER_MAP = {
     "immunefi": ImmunefiScraper,
     "code4rena": Code4renaScraper,
     "sherlock": SherlockScraper,
+    "issuehunt": IssueHuntScraper,
 }
 
 
