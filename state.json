@@ -1,0 +1,34 @@
+{
+  "system_status": "RUNNING",
+  "last_session_sync": "2026-07-16T14:26:54.491231+00:00",
+  "current_execution_pointer": {
+    "stage": "MONITORING_AND_HUNTING",
+    "last_action": "Successfully submitted PR #252 to mergeos-bounties/Loru",
+    "current_target_repo": "NONE"
+  },
+  "active_monitors": {
+    "jwallet/spy-spotify": {
+      "pr_number": 535,
+      "status": "UNDER_REVIEW",
+      "bounty_value": "$25",
+      "platform": "IssueHunt"
+    },
+    "zhangjiayang6835-cyber/ai-research": {
+      "pr_number": 1231,
+      "status": "UNDER_REVIEW",
+      "bounty_value": "$150",
+      "platform": "IssueHunt"
+    },
+    "mergeos-bounties/Loru": {
+      "pr_number": 252,
+      "status": "UNDER_REVIEW",
+      "bounty_value": "50 MRG",
+      "platform": "MergeOS"
+    }
+  },
+  "blacklisted_repos": [
+    "xevrion-v2/agent-playground",
+    "ThanhTrucSolutions/OriLang",
+    "iii123iii/Crystal-PDF"
+  ]
+}

@@ -1,4 +1,4 @@
-name: 🧹 Fork Cleanup
+name: 🧹 Fork Cleanup (Smart Retention)
 
 on:
   schedule:
@@ -9,98 +9,190 @@ jobs:
   cleanup:
     runs-on: ubuntu-latest
     steps:
-      - name: Delete forks with no open PRs
+      - name: Checkout repo (for state.json + agent.md)
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Smart delete forks — respect UNDER_REVIEW / NEEDS_REVISION
         env:
           GH_PAT: ${{ secrets.GH_PAT }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
-          # Clean chat_id
+          # Clean chat_id (preserve leading minus for channels)
           CHAT_ID=$(echo "$TELEGRAM_CHAT_ID" | tr -d '[:space:]')
           if [[ "$CHAT_ID" == -* ]]; then
             CHAT_ID="-$(echo "${CHAT_ID:1}" | tr -cd '0-9')"
           else
             CHAT_ID=$(echo "$CHAT_ID" | tr -cd '0-9')
           fi
+          export CHAT_ID
 
           # Get all forks under airdropia-collection
           FORKS=$(curl -sS -H "Authorization: Bearer $GH_PAT" \
             "https://api.github.com/orgs/airdropia-collection/repos?per_page=100&type=forks")
 
-          echo "$FORKS" | python3 -c "
-          import json, sys, subprocess, os
+          # Pass FORKS + state.json to Python via env + stdin
+          echo "$FORKS" | python3 - <<'PYEOF'
+          import json, sys, os, urllib.request
+          from pathlib import Path
 
           forks = json.load(sys.stdin)
           gh_pat = os.environ['GH_PAT']
           chat_id = os.environ.get('CHAT_ID', '')
           tg_token = os.environ.get('TELEGRAM_BOT_TOKEN', '')
 
+          # ──────────────────────────────────────────────────────────── #
+          # Read state.json (agent.md §5 — Smart Repository Lifecycle)
+          # ──────────────────────────────────────────────────────────── #
+          state_path = Path('state.json')
+          if not state_path.exists():
+              print('⚠️ state.json not found — aborting cleanup (safety)')
+              sys.exit(0)
+          try:
+              state = json.loads(state_path.read_text())
+          except Exception as e:
+              print(f'⚠️ state.json corrupt — aborting cleanup: {e}')
+              sys.exit(0)
+
+          active_monitors = state.get('active_monitors', {})
+          # Protected statuses (agent.md §5): NEVER delete fork if PR is
+          # UNDER_REVIEW or NEEDS_REVISION
+          PROTECTED = {'UNDER_REVIEW', 'NEEDS_REVISION'}
+          # Deletable statuses (agent.md §5): ONLY delete if PR is
+          # MERGED or CLOSED_AND_REJECTED
+          DELETABLE = {'MERGED', 'CLOSED_AND_REJECTED'}
+
+          def tg_send(msg):
+              if not (tg_token and chat_id):
+                  return
+              payload = json.dumps({
+                  'chat_id': chat_id,
+                  'text': msg,
+                  'parse_mode': 'Markdown',
+                  'disable_web_page_preview': True,
+                  'reply_markup': {
+                      'inline_keyboard': [[
+                          {'text': '🛑 Emergency Stop', 'callback_data': 'pause_system'},
+                          {'text': '▶️ Resume Flow', 'callback_data': 'resume_system'},
+                      ]]
+                  }
+              }).encode()
+              req = urllib.request.Request(
+                  f'https://api.telegram.org/bot{tg_token}/sendMessage',
+                  data=payload,
+                  headers={'Content-Type': 'application/json'},
+              )
+              try:
+                  urllib.request.urlopen(req, timeout=10)
+              except Exception as e:
+                  print(f'  Telegram send failed: {e}')
+
+          def gh_api(method, url, method_verb='GET'):
+              req = urllib.request.Request(
+                  url,
+                  method=method_verb,
+                  headers={
+                      'Authorization': f'Bearer {gh_pat}',
+                      'Accept': 'application/vnd.github+json',
+                  },
+              )
+              return urllib.request.urlopen(req)
+
           for fork in forks:
               if not fork.get('fork'):
                   continue
 
-              fork_name = fork['full_name']
-              # Get parent repo
+              fork_name = fork['full_name']  # e.g. airdropia-collection/spy-spotify
               parent_url = fork.get('parent', {}).get('url', '')
               if not parent_url:
                   print(f'  SKIP {fork_name}: no parent info')
                   continue
 
-              # Check if any PRs are open from our fork to parent
-              # Extract owner/repo from parent URL
-              parent_parts = parent_url.replace('https://api.github.com/repos/', '').split('/')
-              if len(parent_parts) < 2:
+              # Extract upstream owner/repo from parent URL
+              # e.g. https://api.github.com/repos/jwallet/spy-spotify
+              parent_full = parent_url.replace('https://api.github.com/repos/', '')
+              if '/' not in parent_full:
                   continue
-              parent_owner = parent_parts[0]
-              parent_repo = parent_parts[1]
-              parent_full = f'{parent_owner}/{parent_repo}'
+              # parent_full is the upstream repo like "jwallet/spy-spotify"
 
-              # Check open PRs
-              import urllib.request
-              req = urllib.request.Request(
-                  f'https://api.github.com/repos/{parent_full}/pulls?state=open&per_page=100',
-                  headers={'Authorization': f'Bearer {gh_pat}', 'Accept': 'application/vnd.github+json'}
-              )
-              try:
-                  resp = urllib.request.urlopen(req)
-                  prs = json.loads(resp.read())
-                  our_open_prs = [pr for pr in prs if 'airdropia' in pr.get('head', {}).get('label', '')]
-              except:
-                  our_open_prs = []
-
-              if our_open_prs:
-                  print(f'  KEEP {fork_name}: {len(our_open_prs)} open PR(s)')
+              # ── agent.md §5: check state.json monitor ────────────── #
+              monitor = active_monitors.get(parent_full)
+              if monitor:
+                  status = str(monitor.get('status', '')).upper()
+                  pr_num = monitor.get('pr_number', '?')
+                  if status in PROTECTED:
+                      print(f'  🛡️ KEEP {fork_name}: upstream {parent_full} PR #{pr_num} is {status}')
+                      continue
+                  if status not in DELETABLE:
+                      print(f'  ⚠️ KEEP {fork_name}: upstream {parent_full} PR #{pr_num} status={status} (not in deletable set)')
+                      continue
+                  # Status is MERGED or CLOSED_AND_REJECTED — OK to delete
+                  print(f'  🗑️ DELETE {fork_name}: upstream {parent_full} PR #{pr_num} status={status}')
               else:
-                  print(f'  DELETE {fork_name}: no open PRs')
-                  # Delete the fork
-                  del_req = urllib.request.Request(
-                      f'https://api.github.com/repos/{fork_name}',
-                      method='DELETE',
-                      headers={'Authorization': f'Bearer {gh_pat}', 'Accept': 'application/vnd.github+json'}
-                  )
+                  # No monitor entry — check live PR state via API as a safety net
                   try:
-                      del_resp = urllib.request.urlopen(del_req)
-                      print(f'    ✅ Deleted (HTTP {del_resp.status})')
-
-                      # Send Telegram notification
-                      if tg_token and chat_id:
-                          msg = f'🧹 *Fork Cleanup*\n━━━━━━━━━━━━━━━━━━\n📦 Deleted: \`{fork_name}\`\nReason: No open PRs remaining\n━━━━━━━━━━━━━━━━━━'
-                          tg_req = urllib.request.Request(
-                              f'https://api.telegram.org/bot{tg_token}/sendMessage',
-                              data=json.dumps({
-                                  'chat_id': chat_id,
-                                  'text': msg,
-                                  'parse_mode': 'Markdown',
-                                  'disable_web_page_preview': True
-                              }).encode(),
-                              headers={'Content-Type': 'application/json'}
-                          )
-                      try:
-                          urllib.request.urlopen(tg_req)
-                      except:
-                          pass
+                      resp = gh_api('GET', f'https://api.github.com/repos/{parent_full}/pulls?state=all&per_page=100')
+                      prs = json.loads(resp.read())
+                      our_prs = [pr for pr in prs if 'airdropia' in pr.get('head', {}).get('label', '')]
                   except Exception as e:
-                      print(f'    ❌ Failed: {e}')
-          " 2>&1
+                      print(f'  ⚠️ KEEP {fork_name}: could not check PRs ({e})')
+                      continue
+
+                  if not our_prs:
+                      print(f'  🗑️ DELETE {fork_name}: no PRs from our fork (legacy cleanup)')
+                  else:
+                      # Check the most recent PR state
+                      latest_pr = our_prs[0]
+                      pr_state = latest_pr.get('state', 'open')
+                      merged_at = latest_pr.get('merged_at')
+                      if pr_state == 'open' or merged_at is None and pr_state == 'closed':
+                          # Open PR, or closed-without-merge (rejected) →
+                          # rejected is OK to delete, open is NOT
+                          if pr_state == 'open':
+                              print(f'  🛡️ KEEP {fork_name}: upstream {parent_full} has open PR #{latest_pr.get("number")} (auto-protect)')
+                              # Auto-add to state.json so future runs are fast
+                              active_monitors[parent_full] = {
+                                  'pr_number': latest_pr.get('number'),
+                                  'status': 'UNDER_REVIEW',
+                                  'bounty_value': '',
+                                  'platform': 'unknown',
+                                  'auto_added_at': 'fork-cleanup-' + os.environ.get('GITHUB_RUN_ID', ''),
+                              }
+                              continue
+                          else:
+                              # Closed without merge = rejected
+                              print(f'  🗑️ DELETE {fork_name}: upstream PR #{latest_pr.get("number")} closed (rejected)')
+                      elif merged_at:
+                          print(f'  🗑️ DELETE {fork_name}: upstream PR #{latest_pr.get("number")} MERGED')
+
+              # ── Perform the deletion ──────────────────────────────── #
+              try:
+                  del_resp = gh_api('DELETE', f'https://api.github.com/repos/{fork_name}', method_verb='DELETE')
+                  print(f'    ✅ Deleted (HTTP {del_resp.status})')
+
+                  # Remove the monitor entry if it exists
+                  if parent_full in active_monitors:
+                      del active_monitors[parent_full]
+
+                  # Send Telegram notification with control buttons
+                  tg_send(
+                      f'🧹 *Fork Cleanup*\n'
+                      f'━━━━━━━━━━━━━━━━━━\n'
+                      f'📦 Deleted: `{fork_name}`\n'
+                      f'🔗 Upstream: `{parent_full}`\n'
+                      f'_Fork retention policy applied._\n'
+                      f'━━━━━━━━━━━━━━━━━━'
+                  )
+              except Exception as e:
+                  print(f'    ❌ Failed: {e}')
+
+          # ── Persist updated state.json ──────────────────────────── #
+          state['active_monitors'] = active_monitors
+          state['last_session_sync'] = __import__('datetime').datetime.utcnow().isoformat() + 'Z'
+          state_path.write_text(json.dumps(state, indent=2, default=str))
+          print('\n✅ state.json updated with cleanup results')
+          PYEOF
 
           echo "Fork cleanup complete."

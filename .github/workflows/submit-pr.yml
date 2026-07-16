@@ -22,7 +22,15 @@ on:
 jobs:
   submit_pr:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write  # required to commit state.json update
     steps:
+      - name: Checkout repo (so we can update state.json)
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GH_PAT }}
+          fetch-depth: 1
+
       - name: Create PR via GitHub API
         env:
           GH_PAT: ${{ secrets.GH_PAT }}
@@ -51,7 +59,50 @@ jobs:
       - name: Result
         run: echo "PR created at $PR_URL"
 
-      - name: 📱 Notify Telegram — PR Submitted
+      - name: 💾 Update state.json — register new active monitor
+        run: |
+          python3 - <<'PYEOF'
+          import json
+          from pathlib import Path
+          from datetime import datetime, timezone
+
+          upstream = "${{ github.event.inputs.upstream_repo }}"
+          pr_number = int("${PR_NUMBER}") if "${PR_NUMBER}".isdigit() else "${PR_NUMBER}"
+
+          state_path = Path("state.json")
+          state = json.loads(state_path.read_text()) if state_path.exists() else {}
+          state.setdefault("active_monitors", {})[upstream] = {
+              "pr_number": pr_number,
+              "status": "UNDER_REVIEW",
+              "bounty_value": "",
+              "platform": "manual",
+              "pr_url": "${PR_URL}",
+              "pr_title": "${{ github.event.inputs.pr_title }}",
+              "submitted_at": datetime.now(timezone.utc).isoformat(),
+          }
+          state["current_execution_pointer"] = {
+              "stage": "PR_SUBMITTED",
+              "last_action": f"Submitted PR #{pr_number} to {upstream}",
+              "current_target_repo": upstream,
+          }
+          state["last_session_sync"] = datetime.now(timezone.utc).isoformat()
+          state_path.write_text(json.dumps(state, indent=2, default=str))
+          print(f"✅ state.json updated: monitor added for {upstream} PR #{pr_number}")
+          PYEOF
+
+      - name: Commit state.json
+        run: |
+          git config user.name "bounty-hunter-bot"
+          git config user.email "bot@airdropia-collection"
+          git add state.json
+          if git diff --cached --quiet; then
+            echo "No state changes — skipping commit"
+          else
+            git commit -m "🤖 bot: register PR #${PR_NUMBER} on ${UPSTREAM_REPO} in state.json"
+            git push
+          fi
+
+      - name: 📱 Notify Telegram — PR Submitted (with control buttons)
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
@@ -65,8 +116,10 @@ jobs:
             CHAT_ID=$(echo "$CHAT_ID" | tr -cd '0-9')
           fi
           MSG="🚀 *PR Submitted!*\n\n*Repo:* \`${UPSTREAM_REPO}\`\n*PR:* #${PR_NUMBER}\n*Title:* ${{ github.event.inputs.pr_title }}\n*URL:* ${PR_URL}\n\n⏳ Waiting for maintainer review..."
+          # Build inline keyboard JSON for [🛑 Emergency Stop] / [▶️ Resume Flow]
+          REPLY_MARKUP='{"inline_keyboard":[[{"text":"🛑 Emergency Stop","callback_data":"pause_system"},{"text":"▶️ Resume Flow","callback_data":"resume_system"}]]}'
           curl -sS -X POST \
             "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
             -H "Content-Type: application/json" \
-            -d "{\"chat_id\": \"${CHAT_ID}\", \"text\": \"${MSG}\", \"parse_mode\": \"Markdown\", \"disable_web_page_preview\": true}" \
+            -d "{\"chat_id\": \"${CHAT_ID}\", \"text\": \"${MSG}\", \"parse_mode\": \"Markdown\", \"disable_web_page_preview\": true, \"reply_markup\": ${REPLY_MARKUP}}" \
             || echo "Telegram notification failed (non-blocking)"

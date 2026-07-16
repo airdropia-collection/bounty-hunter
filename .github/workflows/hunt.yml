@@ -47,7 +47,31 @@ jobs:
           python -m patchright install --with-deps chromium
           python -m playwright install --with-deps chromium
 
+      # ──────────────────────────────────────────────────────────── #
+      # MASTER BRAKE (agent.md §2)
+      # If system_status in state.json is "PAUSED", skip this run
+      # entirely. The user toggles this from Telegram.
+      # ──────────────────────────────────────────────────────────── #
+      - name: 🛑 Check PAUSED state
+        id: brake
+        run: |
+          if [ ! -f state.json ]; then
+            echo "state.json missing — initializing (treating as RUNNING)"
+            echo "skip=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          STATUS=$(python3 -c "import json; print(json.load(open('state.json')).get('system_status','RUNNING').upper())")
+          echo "system_status = $STATUS"
+          if [ "$STATUS" = "PAUSED" ]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "🛑 System is PAUSED — skipping hunt run"
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+            echo "▶️ System is RUNNING — proceeding with hunt"
+          fi
+
       - name: 🩺 Health Check
+        if: steps.brake.outputs.skip != 'true'
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
@@ -58,6 +82,7 @@ jobs:
           python -m src.health || true
 
       - name: 🔍 Run Pipeline
+        if: steps.brake.outputs.skip != 'true'
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}

@@ -27,6 +27,7 @@ from src.scrapers.code4rena import Code4renaScraper
 from src.scrapers.immunefi import ImmunefiScraper
 from src.scrapers.issuehunt import IssueHuntScraper
 from src.scrapers.sherlock import SherlockScraper
+from src.utils import state_manager
 from src.utils.github_client import GitHubClient
 from src.utils.logger import get_logger, silence_noisy_libs
 from src.utils.state import State
@@ -89,6 +90,31 @@ def analyze_bounty(bounty: Bounty) -> dict[str, Any]:
 
     Returns dict with findings + doubt review results.
     """
+    # Update execution pointer (agent.md §1)
+    state_manager.update_pointer(
+        stage="ANALYZING",
+        last_action=f"Analyzing {bounty.project_name} ({bounty.platform})",
+        current_target_repo=bounty.project_name,
+    )
+
+    # Skip blacklisted repos (agent.md §3 / Golden Rules)
+    if state_manager.is_blacklisted(bounty.project_name):
+        log.warning("[%s] blacklisted — skipping", bounty.project_name)
+        tg = get_notifier()
+        tg.send_filter_event(
+            repo=bounty.project_name,
+            reason="Blacklisted repo (Golden Rule)",
+            details="Repo in state.json blacklisted_repos",
+        )
+        return {
+            "bounty": bounty.to_dict(),
+            "source_downloaded": False,
+            "source_chars": 0,
+            "findings": [],
+            "reviewed_findings": [],
+            "submittable_count": 0,
+        }
+
     result: dict[str, Any] = {
         "bounty": bounty.to_dict(),
         "source_downloaded": False,
@@ -297,15 +323,49 @@ def main() -> int:
     args = parser.parse_args()
 
     silence_noisy_libs()
+
+    # ──────────────────────────────────────────────────────────────── #
+    # MASTER BRAKE — agent.md §2
+    # If system_status is PAUSED, exit immediately without doing anything.
+    # This is checked BEFORE any Telegram notification so we don't even
+    # ping the channel.
+    # ──────────────────────────────────────────────────────────────── #
+    if state_manager.is_paused():
+        log.warning("🛑 SYSTEM IS PAUSED — aborting pipeline (agent.md §2)")
+        # Optional: notify channel once per paused run so user knows the
+        # brake is being respected.
+        tg = get_notifier()
+        tg.send(
+            "🛑 *Pipeline skipped*\n"
+            "━━━━━━━━━━━━━━━━━━\n"
+            "Reason: `system_status = PAUSED` in state.json\n"
+            "Tap ▶️ Resume Flow to continue.\n"
+            "━━━━━━━━━━━━━━━━━━",
+            with_controls=True,
+        )
+        return 0
+
     log.info("=== Bounty Hunter Pipeline starting ===")
     log.info("platform=%s max=%d dry_run=%s skip_analysis=%s",
              args.platform, args.max_bounties, args.dry_run, args.skip_analysis)
 
-    # 0. Telegram notification: pipeline started
+    # Update execution pointer (agent.md §1)
+    state_manager.update_pointer(
+        stage="PIPELINE_START",
+        last_action=f"Pipeline started (platform={args.platform}, max={args.max_bounties})",
+        current_target_repo="NONE",
+    )
+
+    # 0. Telegram notification: pipeline started (with control buttons)
     tg = get_notifier()
     tg.send_pipeline_start(args.platform, args.max_bounties)
 
     # 1. Scrape
+    state_manager.update_pointer(
+        stage="SCRAPING",
+        last_action=f"Scraping platform={args.platform}",
+        current_target_repo="NONE",
+    )
     if args.platform == "all":
         bounties = scrape_all(args.max_bounties)
     else:
@@ -321,6 +381,18 @@ def main() -> int:
     if not args.skip_analysis and fresh_bounties:
         log.info("=== Starting AI Analysis ===")
         for bounty in fresh_bounties:
+            # Re-check PAUSED before each bounty (user might tap stop mid-run)
+            if state_manager.is_paused():
+                log.warning("🛑 PAUSED mid-run — aborting analysis loop")
+                tg.send(
+                    "🛑 *Analysis halted mid-run*\n"
+                    "━━━━━━━━━━━━━━━━━━\n"
+                    f"Stopped before: `{bounty.project_name}`\n"
+                    "━━━━━━━━━━━━━━━━━━",
+                    with_controls=True,
+                )
+                break
+
             log.info("analyzing: %s (%s)", bounty.project_name, bounty.platform)
             try:
                 result = analyze_bounty(bounty)
@@ -346,6 +418,11 @@ def main() -> int:
     # 5. Create GitHub Issues for findings (create for both "submit" AND "investigate")
     total_submittable = sum(r["submittable_count"] for r in analysis_results)
     if not args.dry_run and analysis_results:
+        state_manager.update_pointer(
+            stage="CREATING_ISSUES",
+            last_action=f"Creating {total_submittable} finding Issues",
+            current_target_repo="NONE",
+        )
         gh = GitHubClient()
         if not gh._dry_run:
             issues = create_finding_issues(analysis_results, gh)
@@ -363,12 +440,19 @@ def main() -> int:
     if not args.dry_run:
         notify_operator_if_needed(fresh_bounties)
 
-    # 7. Telegram notification: pipeline complete
+    # 7. Telegram notification: pipeline complete (with control buttons)
     total_findings = sum(len(r["findings"]) for r in analysis_results)
     tg.send_pipeline_complete(
         total_bounties=len(fresh_bounties),
         total_findings=total_findings,
         submittable=total_submittable,
+    )
+
+    # Update execution pointer — pipeline complete
+    state_manager.update_pointer(
+        stage="MONITORING_AND_HUNTING",
+        last_action=f"Pipeline complete (bounties={len(fresh_bounties)}, findings={total_findings})",
+        current_target_repo="NONE",
     )
 
     log.info("=== Pipeline complete ===")

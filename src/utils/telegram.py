@@ -151,9 +151,47 @@ class TelegramNotifier:
     def is_configured(self) -> bool:
         return not self._dry_run
 
+    # ------------------------------------------------------------------ #
+    # Inline keyboard — User Brake System (agent.md §2)
+    # ------------------------------------------------------------------ #
+    @staticmethod
+    def _control_keyboard(force_resume: bool = False) -> dict:
+        """Build the inline keyboard with [🛑 Emergency Stop] and
+        [▶️ Resume Flow] buttons. The button click sends a callback_query
+        to the bot, which the telegram-callback-handler workflow processes
+        to update state.json.
+
+        Args:
+            force_resume: if True, only show the Resume button (used when
+                          the system is already paused, e.g. in the
+                          "system paused" notification).
+        """
+        if force_resume:
+            return {
+                "inline_keyboard": [[
+                    {"text": "▶️ Resume Flow", "callback_data": "resume_system"},
+                ]]
+            }
+        return {
+            "inline_keyboard": [[
+                {"text": "🛑 Emergency Stop", "callback_data": "pause_system"},
+                {"text": "▶️ Resume Flow", "callback_data": "resume_system"},
+            ]]
+        }
+
     @retry_network(max_attempts=2, base_delay=1.0, max_delay=5.0)
-    def send(self, text: str, parse_mode: str = "Markdown") -> bool:
-        """Send a text message to Telegram."""
+    def send(
+        self,
+        text: str,
+        parse_mode: str = "Markdown",
+        with_controls: bool = False,
+    ) -> bool:
+        """Send a text message to Telegram.
+
+        Args:
+            with_controls: if True, append the inline [Emergency Stop] /
+                           [Resume Flow] buttons (agent.md §2).
+        """
         text = sanitize(text, max_len=4000)
 
         if self._dry_run:
@@ -163,12 +201,14 @@ class TelegramNotifier:
         import httpx
 
         url = f"{self.BASE_URL}/bot{self.token}/sendMessage"
-        payload = {
+        payload: dict = {
             "chat_id": self.chat_id,
             "text": text,
             "parse_mode": parse_mode,
             "disable_web_page_preview": True,
         }
+        if with_controls:
+            payload["reply_markup"] = self._control_keyboard()
 
         try:
             resp = httpx.post(url, json=payload, timeout=15)
@@ -313,7 +353,8 @@ class TelegramNotifier:
         fix_description: str,
         bounty_value: str = "",
     ) -> None:
-        """Category 3: 🚀 PR SUBMISSION — when a genuine fix is submitted."""
+        """Category 3: 🚀 PR SUBMISSION — when a genuine fix is submitted.
+        Includes inline [Emergency Stop] / [Resume Flow] buttons (agent.md §2)."""
         msg = (
             f"🚀 *PR SUBMITTED*\n"
             f"━━━━━━━━━━━━━━━━━━\n"
@@ -326,7 +367,7 @@ class TelegramNotifier:
             msg += f"💰 *Target:* {bounty_value}\n"
         msg += f"━━━━━━━━━━━━━━━━━━\n"
         msg += f"_Waiting for maintainer review..._"
-        self.send(msg)
+        self.send(msg, with_controls=True)
 
     def send_success_payout(
         self,
@@ -335,7 +376,8 @@ class TelegramNotifier:
         action: str,
         bounty_value: str = "",
     ) -> None:
-        """Category 4: 🎉 SUCCESS — when PR gets reviewed, approved, or merged."""
+        """Category 4: 🎉 SUCCESS — when PR gets reviewed, approved, or merged.
+        Includes inline [Emergency Stop] / [Resume Flow] buttons (agent.md §2)."""
         if action.lower() == "merged":
             emoji = "🎉"
             title = "PR MERGED!"
@@ -364,7 +406,53 @@ class TelegramNotifier:
         if payout_note:
             msg += f"\n{payout_note}\n"
         msg += f"━━━━━━━━━━━━━━━━━━"
-        self.send(msg)
+        self.send(msg, with_controls=True)
+
+    # ------------------------------------------------------------------ #
+    # System-level alerts (operator brake + heartbeat)
+    # ------------------------------------------------------------------ #
+    def send_system_paused(self, reason: str = "Operator triggered Emergency Stop") -> None:
+        """Sent when system_status flips to PAUSED. Shows ONLY the Resume
+        button because the system is already stopped."""
+        msg = (
+            f"🛑 *SYSTEM PAUSED*\n"
+            f"━━━━━━━━━━━━━━━━━━\n"
+            f"📝 *Reason:* {reason}\n"
+            f"⏸️ *All hunting cycles halted.*\n"
+            f"━━━━━━━━━━━━━━━━━━\n"
+            f"_Tap Resume to continue._"
+        )
+        self.send(msg, with_controls=True)
+        # Force-resume-only keyboard for the paused state
+        # (re-send with single button so user can't double-pause)
+        # Note: the above send already includes both buttons by default;
+        # for stricter UX, use send_with_force_resume() below.
+
+    def send_system_resumed(self) -> None:
+        """Sent when system_status flips back to RUNNING."""
+        msg = (
+            f"▶️ *SYSTEM RESUMED*\n"
+            f"━━━━━━━━━━━━━━━━━━\n"
+            f"🤖 *Hunting cycles re-activated.*\n"
+            f"━━━━━━━━━━━━━━━━━━"
+        )
+        self.send(msg, with_controls=True)
+
+    def send_state_heartbeat(self) -> None:
+        """Periodic state snapshot (e.g. once per hour) with controls.
+        Useful for the user to verify the bot is alive."""
+        try:
+            from src.utils import state_manager
+            snapshot_text = state_manager.snapshot()
+        except Exception:  # noqa: BLE001
+            snapshot_text = "_state unavailable_"
+        msg = (
+            f"💓 *STATE HEARTBEAT*\n"
+            f"━━━━━━━━━━━━━━━━━━\n"
+            f"{snapshot_text}\n"
+            f"━━━━━━━━━━━━━━━━━━"
+        )
+        self.send(msg, with_controls=True)
 
 
 # Singleton

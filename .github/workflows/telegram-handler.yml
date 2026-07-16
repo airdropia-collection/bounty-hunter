@@ -1,0 +1,61 @@
+name: 🎛️ Telegram Callback Handler
+
+# Processes inline button presses ([🛑 Emergency Stop] / [▶️ Resume Flow])
+# sent by the user from any Telegram notification.
+#
+# Every 5 minutes (the minimum allowed GitHub Actions interval), this
+# workflow polls Telegram getUpdates for callback_query events and
+# updates state.json accordingly.
+#
+# The pause/resume takes effect on the NEXT scheduled hunt.yml run
+# (which checks state_manager.is_paused() before doing anything).
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'  # Every 5 minutes (GitHub Actions minimum)
+  workflow_dispatch:
+
+permissions:
+  contents: write  # required to commit state.json changes back to main
+
+jobs:
+  handle_callbacks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo (so we can read/write state.json)
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GH_PAT }}
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install minimal deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install httpx
+
+      - name: Run callback handler
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GH_PAT: ${{ secrets.GH_PAT }}
+          GH_REPO: ${{ secrets.GH_REPO }}
+        run: |
+          python -m src.utils.telegram_callback_handler
+
+      - name: Commit state.json if changed
+        run: |
+          git config user.name "bounty-hunter-bot"
+          git config user.email "bot@airdropia-collection"
+          git add state.json
+          if git diff --cached --quiet; then
+            echo "No state changes — skipping commit"
+          else
+            git commit -m "🤖 bot: state.json updated by telegram-callback-handler"
+            git push
+            echo "✅ state.json committed"
+          fi
