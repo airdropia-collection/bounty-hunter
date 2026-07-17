@@ -46,12 +46,29 @@ log = get_logger("scrapers.dework")
 
 
 # Token decimal places (for converting smallest-unit amounts to human-readable)
-TOKEN_DECIMALS = {
+# IMPORTANT: Same symbol can have different decimals on different chains!
+# e.g. USDC is 6 decimals on Ethereum, but 18 decimals on BSC (Binance Pegged)
+# So we use ADDRESS-based detection when address is available, falling back
+# to symbol-based detection.
+TOKEN_DECIMALS_BY_SYMBOL = {
     "USDC": 6, "USDT": 6, "DAI": 18, "ETH": 18, "MATIC": 18, "WMATIC": 18,
     "WETH": 18, "WBTC": 8, "BTC": 8, "AVAX": 18, "WAVAX": 18,
     # DAO-native tokens (assume 18 decimals — standard ERC20)
     "BANK": 18, "MOONEY": 18, "BABEL": 18, "NEWO": 18, "CODE": 18,
     "FHM": 18, "POKT": 6, "GTC": 18, "DORA": 18,
+}
+
+# Token address → decimals (known non-standard tokens)
+# Binance Pegged tokens often have 18 decimals instead of the standard 6
+TOKEN_DECIMALS_BY_ADDRESS = {
+    # Binance Pegged USDC (BSC) — 18 decimals instead of standard 6
+    "0x8ac76a51cc950d9822d68b8fe3717d61300c8399": 18,
+    # Binance Pegged ETH (BSC) — 18 decimals
+    "0x2170ed0880ac9a755fd29b2688956bd959f933f8": 18,
+    # Binance Pegged BTC (BSC) — 18 decimals instead of standard 8
+    "0x7130d2a12b9bcbfae4f2634d864a1ee1ce3ead9c": 18,
+    # Binance Pegged MATIC (BSC) — 18 decimals
+    "0xcc42724c6683b7e57334c4e856f4c9965ed682bd": 18,
 }
 
 # Active task statuses (bounties still claimable)
@@ -286,7 +303,8 @@ class DeworkScraper(BaseScraper):
                 continue
             raw_amount = reward.get("amount", 0)
             token = reward.get("token") or {}
-            symbol = token.get("symbol", "?")
+            symbol = (token.get("symbol") or "?").upper()
+            address = (token.get("address") or "").lower()
 
             try:
                 # Amount is a string in smallest unit (wei-like)
@@ -297,12 +315,16 @@ class DeworkScraper(BaseScraper):
                 except (ValueError, TypeError):
                     continue
 
-            # Convert using token decimals
-            decimals = TOKEN_DECIMALS.get(symbol.upper(), 18)  # default 18 for unknown ERC20
+            # Determine decimals — address takes priority over symbol
+            # (Binance Pegged USDC at 0x8AC76a51... has 18 decimals, not 6)
+            if address and address in TOKEN_DECIMALS_BY_ADDRESS:
+                decimals = TOKEN_DECIMALS_BY_ADDRESS[address]
+            else:
+                decimals = TOKEN_DECIMALS_BY_SYMBOL.get(symbol, 18)  # default 18 for unknown ERC20
             human_amount = amount_int / (10 ** decimals)
 
             # Accumulate USD value (for stablecoins only)
-            if symbol.upper() in ("USDC", "USDT", "DAI", "USD"):
+            if symbol in ("USDC", "USDT", "DAI", "USD"):
                 amount_usd += int(human_amount)
                 bounty_value_str = f"${int(human_amount)}"
             else:
