@@ -7,8 +7,6 @@ human review and local testing.
 """
 from __future__ import annotations
 
-
-
 from src.analyzers.ai_helper import get_ai_helper
 from src.analyzers.vuln_detector import Finding
 from src.utils.logger import get_logger

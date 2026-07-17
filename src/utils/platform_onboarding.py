@@ -348,8 +348,8 @@ def block_pr_if_not_onboarded(upstream_repo: str) -> bool:
 
     # Send Telegram 🛡️ FILTER event
     try:
-        from src.utils.telegram import get_notifier
         from src.utils import state_manager
+        from src.utils.telegram import get_notifier
         state_manager.update_pointer(
             stage="ONBOARDING_BLOCKED",
             last_action=f"PR submission blocked — {result['platform']} onboarding incomplete",

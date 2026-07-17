@@ -9,7 +9,6 @@ Data source: https://issuehunt.io/issues
 from __future__ import annotations
 
 import re
-from typing import List
 
 from src.scrapers.base import BaseScraper, Bounty
 from src.utils.logger import get_logger
@@ -24,7 +23,7 @@ class IssueHuntScraper(BaseScraper):
     BASE_URL = "https://issuehunt.io"
     ISSUES_URL = "https://issuehunt.io/issues"
 
-    def scrape(self) -> List[Bounty]:
+    def scrape(self) -> list[Bounty]:
         """Scrape IssueHunt bounties."""
         self.log.info("scraping IssueHunt issues page...")
         try:
@@ -37,9 +36,9 @@ class IssueHuntScraper(BaseScraper):
             self.log.error("IssueHunt scrape failed: %s", exc)
             return []
 
-    def _parse_issues(self, html: str) -> List[Bounty]:
+    def _parse_issues(self, html: str) -> list[Bounty]:
         """Parse IssueHunt bounty data from HTML."""
-        bounties: List[Bounty] = []
+        bounties: list[Bounty] = []
 
         # IssueHunt has links like: /r/owner/repo/issues/123
         issue_links = re.findall(r'href="(/r/[^/]+/[^/]+/issues/\d+)"', html)

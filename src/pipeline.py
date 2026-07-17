@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
@@ -21,7 +22,6 @@ from typing import Any
 
 from src.analyzers.contract_downloader import ContractDownloader
 from src.analyzers.vuln_detector import VulnerabilityDetector
-from src.config import CONFIG
 from src.scrapers.base import Bounty
 from src.scrapers.code4rena import Code4renaScraper
 from src.scrapers.dework import DeworkScraper
@@ -62,8 +62,7 @@ LEGACY_SCRAPER_MAP = {
 }
 
 # Final SCRAPER_MAP: verified by default, plus legacy if env var set
-import os as _os
-if _os.getenv("INCLUDE_LEGACY_SCRAPERS", "false").lower() == "true":
+if os.getenv("INCLUDE_LEGACY_SCRAPERS", "false").lower() == "true":
     SCRAPER_MAP = {**VERIFIED_SCRAPER_MAP, **LEGACY_SCRAPER_MAP}
 else:
     SCRAPER_MAP = dict(VERIFIED_SCRAPER_MAP)

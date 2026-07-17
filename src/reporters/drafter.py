@@ -100,7 +100,7 @@ class ReportDrafter:
             header += f"**Confidence:** {finding.confidence:.0%}\n"
             if finding.swc_id:
                 header += f"**SWC ID:** {finding.swc_id}\n"
-            header += f"**Report Generated:** AI-drafted (needs human review)\n\n"
+            header += "**Report Generated:** AI-drafted (needs human review)\n\n"
             header += "---\n\n"
 
             log.info("drafted report for: %s", finding.title)

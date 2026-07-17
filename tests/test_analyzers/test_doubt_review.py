@@ -1,6 +1,6 @@
 """Tests for the finding verifier (10-step rigorous verification)."""
-from src.analyzers.vuln_detector import Finding
 from src.analyzers.doubt_review import FindingVerifier, VerifiedFinding
+from src.analyzers.vuln_detector import Finding
 
 
 def test_verified_finding_creation():

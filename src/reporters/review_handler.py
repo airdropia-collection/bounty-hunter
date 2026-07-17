@@ -1,5 +1,4 @@
 """
-from typing import Any
 Review handler — processes /submit /reject /modify commands.
 
 When the user comments on a GitHub Issue with:
@@ -16,7 +15,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-
+from typing import Any
 
 from src.utils.logger import get_logger
 from src.utils.state import State

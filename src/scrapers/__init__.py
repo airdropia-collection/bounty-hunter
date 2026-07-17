@@ -24,12 +24,12 @@ var to "true".
 """
 
 from .base import BaseScraper, Bounty
-from .dework import DeworkScraper
-from .issuehunt import IssueHuntScraper
 
 # Legacy scrapers (kept for manual use, NOT in default SCRAPER_MAP)
 from .code4rena import Code4renaScraper
+from .dework import DeworkScraper
 from .immunefi import ImmunefiScraper
+from .issuehunt import IssueHuntScraper
 from .sherlock import SherlockScraper
 
 __all__ = [

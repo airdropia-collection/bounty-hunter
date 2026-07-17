@@ -26,7 +26,7 @@ Skills applied: skills/doubt-driven-development/
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from src.analyzers.ai_helper import get_ai_helper

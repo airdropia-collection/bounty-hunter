@@ -18,8 +18,6 @@ CRITICAL RULE (from agent.md §2):
 from __future__ import annotations
 
 import json
-import os
-import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any

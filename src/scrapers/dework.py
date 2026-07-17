@@ -36,10 +36,8 @@ Verified platform status (agent.md §3):
 """
 from __future__ import annotations
 
-import json
 import os
 import re
-from typing import Any, List
 
 from src.scrapers.base import BaseScraper, Bounty
 from src.utils.logger import get_logger
@@ -74,7 +72,7 @@ class DeworkScraper(BaseScraper):
     BASE_URL = "https://dework.xyz"
     GRAPHQL_URL = "https://api.dework.xyz/graphql"
 
-    def scrape(self) -> List[Bounty]:
+    def scrape(self) -> list[Bounty]:
         """Scrape Dework bounties. Returns [] if all sources blocked."""
         self.log.info("scraping Dework...")
 
@@ -131,7 +129,7 @@ class DeworkScraper(BaseScraper):
     # ------------------------------------------------------------------ #
     # Main scrape logic
     # ------------------------------------------------------------------ #
-    def _scrape_via_graphql(self, auth_token: str) -> List[Bounty]:
+    def _scrape_via_graphql(self, auth_token: str) -> list[Bounty]:
         """Fetch bounties via GraphQL (verified working 2026-07-17).
 
         Flow:
@@ -141,7 +139,7 @@ class DeworkScraper(BaseScraper):
            nested `tasks` field on getWorkspace
         4. Filter tasks with rewards + active status
         """
-        bounties: List[Bounty] = []
+        bounties: list[Bounty] = []
 
         # Step 1: Get popular orgs
         data = self._graphql(
@@ -361,8 +359,8 @@ class DeworkScraper(BaseScraper):
         """Send a 🛡️ FILTER Telegram event so the operator knows
         Dework scraping returned 0 bounties."""
         try:
-            from src.utils.telegram import get_notifier
             from src.utils import state_manager
+            from src.utils.telegram import get_notifier
             state_manager.update_pointer(
                 stage="DEWORK_NO_BOUNTIES",
                 last_action="Dework scrape returned 0 active bounties",

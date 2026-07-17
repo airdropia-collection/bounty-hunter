@@ -281,7 +281,7 @@ class TelegramNotifier:
         )
         if url:
             msg += f"[View bounty]({url})\n"
-        msg += f"\nReview on GitHub → `/submit` or `/reject`"
+        msg += "\nReview on GitHub → `/submit` or `/reject`"
         self.send(msg)
 
     def send_error(self, error: str, context: str = "") -> None:
@@ -322,8 +322,8 @@ class TelegramNotifier:
         )
         if issue_url:
             msg += f"🔗 [View Issue]({issue_url})\n"
-        msg += f"━━━━━━━━━━━━━━━━━━\n"
-        msg += f"_Analyzing codebase for vulnerabilities..._"
+        msg += "━━━━━━━━━━━━━━━━━━\n"
+        msg += "_Analyzing codebase for vulnerabilities..._"
         self.send(msg)
 
     def send_filter_event(
@@ -341,8 +341,8 @@ class TelegramNotifier:
         )
         if details:
             msg += f"📋 *Details:* {details}\n"
-        msg += f"━━━━━━━━━━━━━━━━━━\n"
-        msg += f"_Golden Rules active — spam filtered_"
+        msg += "━━━━━━━━━━━━━━━━━━\n"
+        msg += "_Golden Rules active — spam filtered_"
         self.send(msg)
 
     def send_pr_submission(
@@ -365,8 +365,8 @@ class TelegramNotifier:
         )
         if bounty_value:
             msg += f"💰 *Target:* {bounty_value}\n"
-        msg += f"━━━━━━━━━━━━━━━━━━\n"
-        msg += f"_Waiting for maintainer review..._"
+        msg += "━━━━━━━━━━━━━━━━━━\n"
+        msg += "_Waiting for maintainer review..._"
         self.send(msg, with_controls=True)
 
     def send_success_payout(
@@ -405,7 +405,7 @@ class TelegramNotifier:
             msg += f"💰 *Bounty:* {bounty_value}\n"
         if payout_note:
             msg += f"\n{payout_note}\n"
-        msg += f"━━━━━━━━━━━━━━━━━━"
+        msg += "━━━━━━━━━━━━━━━━━━"
         self.send(msg, with_controls=True)
 
     # ------------------------------------------------------------------ #
@@ -431,10 +431,10 @@ class TelegramNotifier:
     def send_system_resumed(self) -> None:
         """Sent when system_status flips back to RUNNING."""
         msg = (
-            f"▶️ *SYSTEM RESUMED*\n"
-            f"━━━━━━━━━━━━━━━━━━\n"
-            f"🤖 *Hunting cycles re-activated.*\n"
-            f"━━━━━━━━━━━━━━━━━━"
+            "▶️ *SYSTEM RESUMED*\n"
+            "━━━━━━━━━━━━━━━━━━\n"
+            "🤖 *Hunting cycles re-activated.*\n"
+            "━━━━━━━━━━━━━━━━━━"
         )
         self.send(msg, with_controls=True)
 

@@ -26,8 +26,8 @@ def test_download_caches_results(tmp_path, monkeypatch):
     monkeypatch.setattr("src.analyzers.contract_downloader.CACHE_DIR", tmp_path / "contracts")
     dl = ContractDownloader(etherscan_api_key="")
 
-    # Manually create a cache file
-    cache_file = tmp_path / "contracts" / "test_key.sol"
+    # Manually create a cache file (uses .src extension — language-agnostic)
+    cache_file = tmp_path / "contracts" / "test_key.src"
     cache_file.parent.mkdir(parents=True, exist_ok=True)
     cache_file.write_text("cached source code")
 
