@@ -1,0 +1,151 @@
+name: 🛡️ MergeOS Onboarding
+
+# Completes the MergeOS Gate 1 onboarding ritual using the Classic GH_PAT
+# secret (which has full repo + user:follow + public_repo scopes).
+#
+# The local fine-grained PAT used for development CANNOT perform follow/star
+# operations (HTTP 403). This workflow uses the GH_PAT secret inside GitHub
+# Actions to perform them on behalf of the @airdropia account.
+#
+# Triggered:
+# - Manually via workflow_dispatch
+# - Automatically by submit-pr.yml's onboarding gate when a MergeOS PR is
+#   blocked (TODO: wire this up via repository_dispatch)
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_repo:
+        description: 'PR repo (owner/repo) to comment on'
+        default: 'mergeos-bounties/Loru'
+      pr_number:
+        description: 'PR number to comment on'
+        default: '252'
+      comment_body:
+        description: 'Comment body (single line; use \\n for newlines)'
+        default: 'Gate 1 onboarding complete'
+
+permissions:
+  contents: read
+
+jobs:
+  onboard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Follow mergeos-bounties org + star core repos
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: |
+          set -e
+          echo "=== Following mergeos-bounties org ==="
+          STATUS=$(curl -sS -o /dev/null -w "%{http_code}" -X PUT \
+            -H "Authorization: token $GH_PAT" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/user/following/mergeos-bounties")
+          if [ "$STATUS" = "204" ]; then
+            echo "✅ Following mergeos-bounties (HTTP 204)"
+          elif [ "$STATUS" = "403" ]; then
+            echo "❌ PAT lacks 'user:follow' scope (HTTP 403)"
+            echo "   Fix: GitHub Settings → Developer settings → PAT (classic) → "
+            echo "   Regenerate with 'user:follow' scope checked"
+            exit 1
+          else
+            echo "⚠️ Unexpected HTTP $STATUS"
+          fi
+
+          echo ""
+          echo "=== Starring mergeos-bounties/mergeos ==="
+          STATUS=$(curl -sS -o /dev/null -w "%{http_code}" -X PUT \
+            -H "Authorization: token $GH_PAT" \
+            -H "Accept: application/vnd.github+json" \
+            -H "Content-Length: 0" \
+            "https://api.github.com/user/starred/mergeos-bounties/mergeos")
+          if [ "$STATUS" = "204" ]; then
+            echo "✅ Starred mergeos-bounties/mergeos (HTTP 204)"
+          elif [ "$STATUS" = "403" ]; then
+            echo "❌ PAT lacks 'public_repo' scope (HTTP 403)"
+            exit 1
+          else
+            echo "⚠️ Unexpected HTTP $STATUS"
+          fi
+
+          echo ""
+          echo "=== Starring mergeos-bounties/mergeos-contracts ==="
+          STATUS=$(curl -sS -o /dev/null -w "%{http_code}" -X PUT \
+            -H "Authorization: token $GH_PAT" \
+            -H "Accept: application/vnd.github+json" \
+            -H "Content-Length: 0" \
+            "https://api.github.com/user/starred/mergeos-bounties/mergeos-contracts")
+          if [ "$STATUS" = "204" ]; then
+            echo "✅ Starred mergeos-bounties/mergeos-contracts (HTTP 204)"
+          elif [ "$STATUS" = "403" ]; then
+            echo "❌ PAT lacks 'public_repo' scope (HTTP 403)"
+            exit 1
+          else
+            echo "⚠️ Unexpected HTTP $STATUS"
+          fi
+
+      - name: Verify onboarding complete
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: |
+          echo "=== Verification ==="
+          F_STATUS=$(curl -sS -o /dev/null -w "%{http_code}" \
+            -H "Authorization: token $GH_PAT" \
+            "https://api.github.com/user/following/mergeos-bounties")
+          S1_STATUS=$(curl -sS -o /dev/null -w "%{http_code}" \
+            -H "Authorization: token $GH_PAT" \
+            "https://api.github.com/user/starred/mergeos-bounties/mergeos")
+          S2_STATUS=$(curl -sS -o /dev/null -w "%{http_code}" \
+            -H "Authorization: token $GH_PAT" \
+            "https://api.github.com/user/starred/mergeos-bounties/mergeos-contracts")
+          echo "  Following mergeos-bounties: HTTP $F_STATUS ($([ '$F_STATUS' = '204' ] && echo '✅' || echo '❌'))"
+          echo "  Starred mergeos: HTTP $S1_STATUS ($([ '$S1_STATUS' = '204' ] && echo '✅' || echo '❌'))"
+          echo "  Starred mergeos-contracts: HTTP $S2_STATUS ($([ '$S2_STATUS' = '204' ] && echo '✅' || echo '❌'))"
+
+      - name: Post comment on PR
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+          PR_REPO: ${{ github.event.inputs.pr_repo }}
+          PR_NUMBER: ${{ github.event.inputs.pr_number }}
+          COMMENT_BODY: ${{ github.event.inputs.comment_body }}
+        run: |
+          # Convert literal \n to actual newlines
+          MSG=$(printf '%b' "$COMMENT_BODY")
+          PAYLOAD=$(jq -n --arg body "$MSG" '{body: $body}')
+          echo "=== Posting comment on $PR_REPO#$PR_NUMBER ==="
+          STATUS=$(curl -sS -o /tmp/comment_resp.json -w "%{http_code}" -X POST \
+            -H "Authorization: token $GH_PAT" \
+            -H "Accept: application/vnd.github+json" \
+            -d "$PAYLOAD" \
+            "https://api.github.com/repos/$PR_REPO/issues/$PR_NUMBER/comments")
+          echo "  HTTP $STATUS"
+          if [ "$STATUS" = "201" ]; then
+            COMMENT_URL=$(jq -r '.html_url' /tmp/comment_resp.json)
+            echo "✅ Comment posted: $COMMENT_URL"
+          else
+            echo "❌ Comment failed:"
+            cat /tmp/comment_resp.json
+            exit 1
+          fi
+
+      - name: 📱 Notify Telegram — onboarding complete
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          PR_REPO: ${{ github.event.inputs.pr_repo }}
+          PR_NUMBER: ${{ github.event.inputs.pr_number }}
+        run: |
+          CHAT_ID=$(echo "$TELEGRAM_CHAT_ID" | tr -d '[:space:]')
+          if [[ "$CHAT_ID" == -* ]]; then
+            CHAT_ID="-$(echo "${CHAT_ID:1}" | tr -cd '0-9')"
+          else
+            CHAT_ID=$(echo "$CHAT_ID" | tr -cd '0-9')
+          fi
+          MSG="✅ *MergeOS Gate 1 Onboarding Complete*\n━━━━━━━━━━━━━━━━━━\n📦 Repo: \`$PR_REPO\`\n🔀 PR: #$PR_NUMBER\n━━━━━━━━━━━━━━━━━━\n✅ Followed mergeos-bounties org\n✅ Starred mergeos-bounties/mergeos\n✅ Starred mergeos-bounties/mergeos-contracts\n✅ Comment posted on PR #$PR_NUMBER\n━━━━━━━━━━━━━━━━━━\n_Ready for Gate 2 (security) review._"
+          REPLY_MARKUP='{"inline_keyboard":[[{"text":"🛑 Emergency Stop","callback_data":"pause_system"},{"text":"▶️ Resume Flow","callback_data":"resume_system"}]]}'
+          curl -sS -X POST \
+            "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -H "Content-Type: application/json" \
+            -d "{\"chat_id\": \"${CHAT_ID}\", \"text\": \"${MSG}\", \"parse_mode\": \"Markdown\", \"disable_web_page_preview\": true, \"reply_markup\": ${REPLY_MARKUP}}" \
+            || echo "Telegram notification failed (non-blocking)"
