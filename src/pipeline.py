@@ -198,6 +198,70 @@ def verify_open_on_github(bounties: list[Bounty]) -> list[Bounty]:
     return verified
 
 
+def _search_github_for_org_contracts(org_name: str, max_results: int = 5) -> list[str]:
+    """Search GitHub for likely contract/source repos under an org.
+
+    Used as a fallback when a bounty description has no GitHub URLs but
+    the org name is known (e.g., PoolTogether $25k Dework bounty).
+
+    Search heuristic:
+      1. Query: ``org:<org> stars:>=2`` sorted by stars desc
+      2. Filter to repos whose name or description suggests contracts/source
+         (matches: contract, sol, solidity, protocol, core, v5, v4, vault,
+         prize, twab, liquidator, token, staking, governance)
+      3. Return top ``max_results`` repo URLs
+      4. On ANY error, return [] (fail-soft — caller falls through to skip)
+    """
+    import httpx  # noqa: PLC0415
+
+    # Keywords that suggest the repo contains auditable source code
+    SOURCE_KEYWORDS = (
+        "contract", "solidity", "sol", "protocol", "core",
+        "v5", "v4", "v3", "v2",
+        "vault", "prize", "twab", "liquidator", "token",
+        "staking", "governance", "audit",
+    )
+
+    query = f"org:{org_name} stars:>=2 sort:stars-desc"
+    api_url = "https://api.github.com/search/repositories"
+    headers = {"Accept": "application/vnd.github+json"}
+    gh_pat = os.environ.get("GH_PAT") or os.environ.get("GITHUB_TOKEN")
+    if gh_pat:
+        headers["Authorization"] = f"token {gh_pat}"
+
+    try:
+        resp = httpx.get(
+            api_url,
+            params={"q": query, "per_page": 30},
+            headers=headers,
+            timeout=20,
+            follow_redirects=True,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception as exc:
+        log.warning("[_search_github_for_org_contracts] search failed for org=%s: %s", org_name, exc)
+        return []
+
+    items = data.get("items", [])
+    if not items:
+        return []
+
+    # Score each repo by how many source keywords it matches
+    scored: list[tuple[int, str, str]] = []
+    for item in items:
+        name = (item.get("name") or "").lower()
+        desc = (item.get("description") or "").lower()
+        text = f"{name} {desc}"
+        score = sum(1 for kw in SOURCE_KEYWORDS if kw in text)
+        if score > 0:
+            scored.append((score, item.get("full_name", ""), item.get("html_url", "")))
+
+    # Sort by score desc, then by stars (already sorted by stars in API)
+    scored.sort(key=lambda t: -t[0])
+    return [url for _, _, url in scored[:max_results]]
+
+
 def analyze_bounty(bounty: Bounty) -> dict[str, Any]:
     """Download source code and run AI vulnerability analysis on a bounty.
 
@@ -241,7 +305,24 @@ def analyze_bounty(bounty: Bounty) -> dict[str, Any]:
     downloader = ContractDownloader()
     source_code = None
     detected_language = None
-    for url in bounty.source_urls:
+    source_urls = list(bounty.source_urls)
+
+    # ── Fallback: if bounty has no GitHub URLs in description, try GitHub Search ──
+    # Added 2026-07-17: high-value bounties (e.g., PoolTogether $25k) sometimes
+    # have descriptions that say "links will be added when the code is ready"
+    # but the contracts already exist on GitHub. We search by org name from
+    # the project_name (e.g., "PoolTogether/Bounties" → search "PoolTogether").
+    if not source_urls and "/" in bounty.project_name:
+        org_name = bounty.project_name.split("/")[0]
+        github_urls = _search_github_for_org_contracts(org_name, max_results=5)
+        if github_urls:
+            log.info(
+                "[%s] no source URLs in description — found %d via GitHub Search (org: %s)",
+                bounty.project_name, len(github_urls), org_name,
+            )
+            source_urls = github_urls
+
+    for url in source_urls:
         source_code = downloader.download(url)
         if source_code:
             # Detect language from the downloaded source
