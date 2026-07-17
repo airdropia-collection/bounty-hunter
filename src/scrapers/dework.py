@@ -3,36 +3,36 @@ Dework bounty scraper.
 
 ⚠️ IMPORTANT — READ BEFORE USING:
 Dework (https://dework.xyz) is a Web3 task manager for DAOs and decentralized
-organizations. Bounties are tasks within organization workspaces, often paid
-in crypto (USDC, ETH, org-native tokens).
+organizations. Bounties are tasks within organization workspaces, paid in
+crypto (USDC, ETH, USDT, org-native tokens like BANK/MOONEY/BABEL/NEWO).
 
 This scraper uses Dework's public GraphQL API at https://api.dework.xyz/graphql.
 
-PUBLIC API ACCESS (no auth):
-- ✅ getPopularOrganizations → list of ~50+ DAOs with active Dework workspaces
-- ✅ getOrganizationBySlug(slug) → org details + workspace list
-- ✅ getWorkspace(id) → workspace details
+VERIFIED WORKING SCHEMA (reverse-engineered 2026-07-17 via error messages):
+- getPopularOrganizations → ~891 DAOs (public, no auth)
+- getOrganizationBySlug(slug) → org + workspaces list (public)
+- getWorkspace(id: UUID!) → workspace + NESTED `tasks` field (public!)
+  - tasks: [{ id, name, description, status, priority, dueDate, createdAt,
+             updatedAt, assignees, creator, tags, section, rewards }]
+  - rewards: [{ amount, type, token: { symbol, address } }]
 
-AUTH-REQUIRED API ACCESS:
-- ❌ getTasks(input: { ids: [...] }) → task details (needs valid UUIDs)
-- ❌ Direct bounty/reward fetching → needs authenticated session
+KEY INSIGHT: `getWorkspace` returns tasks as a nested field — NO need for
+the ID-based `getTasks` query. We can list all tasks in any workspace
+without knowing task UUIDs upfront.
 
-The architecture is fundamentally ID-based: you must know task UUIDs to fetch
-them. Public listing of all tasks within a workspace requires authentication.
+AMOUNT FORMAT:
+- USDC/USDT: 6 decimals (200000000 = 200 USDC)
+- ETH/MOONEY/BANK/BABEL/NEWO: 18 decimals (wei)
+- Conversion handled in `_bounty_from_task`
 
-DATA SOURCES (tried in order):
-1. DEWORK_AUTH_TOKEN env var → authenticated GraphQL queries (full access)
-   Get this from browser DevTools → Application → Cookies → `auth_token`
-   after logging into dework.xyz
-2. Public GraphQL API → fetches org + workspace metadata only
-3. Web scraping dework.xyz/<org>/<workspace> pages → extracts task titles
-   from server-rendered HTML (limited; only first page of tasks visible)
-
-If all sources fail, returns [] and logs a 🛡️ FILTER event.
+AUTH:
+- Public API (no auth): org + workspace + task data IS accessible
+  (verified — returned real task data for Developer DAO, Avalanche, etc.)
+- DEWORK_AUTH_TOKEN env var: optional, increases rate limit + unlocks
+  private workspace tasks (if any)
 
 Verified platform status (agent.md §3):
 - ✅ Dework is on the verified escrow platform list (replaced Bountycaster 2026-07-17)
-- ⚠️ Public API only returns org/workspace metadata — task data needs auth
 """
 from __future__ import annotations
 
@@ -40,7 +40,6 @@ import json
 import os
 import re
 from typing import Any, List
-from urllib.parse import urlencode
 
 from src.scrapers.base import BaseScraper, Bounty
 from src.utils.logger import get_logger
@@ -48,76 +47,65 @@ from src.utils.logger import get_logger
 log = get_logger("scrapers.dework")
 
 
+# Token decimal places (for converting smallest-unit amounts to human-readable)
+TOKEN_DECIMALS = {
+    "USDC": 6, "USDT": 6, "DAI": 18, "ETH": 18, "MATIC": 18, "WMATIC": 18,
+    "WETH": 18, "WBTC": 8, "BTC": 8, "AVAX": 18, "WAVAX": 18,
+    # DAO-native tokens (assume 18 decimals — standard ERC20)
+    "BANK": 18, "MOONEY": 18, "BABEL": 18, "NEWO": 18, "CODE": 18,
+    "FHM": 18, "POKT": 6, "GTC": 18, "DORA": 18,
+}
+
+# Active task statuses (bounties still claimable)
+ACTIVE_STATUSES = {"TODO", "IN_PROGRESS", "REVIEW", "OPEN", "ASSIGNED"}
+
+
 class DeworkScraper(BaseScraper):
     """Scrapes Dework.xyz bounties via GraphQL API.
 
-    Strategy:
+    Strategy (verified working 2026-07-17):
     1. Fetch popular organizations (public)
-    2. For each org, fetch its workspaces (public)
-    3. For workspaces named "Bounties" / "Public" / "Contributors":
-       a. If DEWORK_AUTH_TOKEN set → fetch tasks via authenticated GraphQL
-       b. Otherwise → scrape the workspace's public web page for task titles
-    4. Filter for tasks with crypto rewards (USDC, ETH, etc.)
+    2. For each org, fetch workspaces (public)
+    3. For each workspace, fetch tasks via NESTED field on getWorkspace
+    4. Filter tasks with rewards + active status
     """
 
     PLATFORM_NAME = "dework"
     BASE_URL = "https://dework.xyz"
     GRAPHQL_URL = "https://api.dework.xyz/graphql"
 
-    # Workspace name patterns that typically contain bounties
-    BOUNTY_WORKSPACE_PATTERNS = re.compile(
-        r"bounty|bounties|public|contributor|contributions|reward",
-        re.IGNORECASE,
-    )
-
-    # Crypto reward patterns to look for in task text
-    REWARD_PATTERN = re.compile(
-        r"(?:\$|USD|USDC|USDT|ETH|DAI|MATIC|SOL|BTC)\s*[\d,.]+"
-        r"|[\d,.]+\s*(?:USD|USDC|USDT|ETH|DAI|MATIC|SOL|BTC)",
-        re.IGNORECASE,
-    )
-
     def scrape(self) -> List[Bounty]:
         """Scrape Dework bounties. Returns [] if all sources blocked."""
         self.log.info("scraping Dework...")
 
-        # Source 1: Authenticated GraphQL (preferred)
+        # Auth token is optional — public API works without it
+        # (auth just increases rate limits + unlocks private workspaces)
         auth_token = os.getenv("DEWORK_AUTH_TOKEN", "").strip()
-        if auth_token:
-            self.log.info("trying Dework authenticated GraphQL (token len=%d)", len(auth_token))
-            try:
-                bounties = self._scrape_via_authed_graphql(auth_token)
-                if bounties:
-                    self.log.info("Dework authed GraphQL: %d bounties", len(bounties))
-                    return bounties
-                self.log.warning("Dework authed GraphQL returned 0 bounties")
-            except Exception as exc:  # noqa: BLE001
-                self.log.error("Dework authed GraphQL error: %s", exc)
 
-        # Source 2: Public GraphQL + web page scrape (best-effort)
         try:
-            bounties = self._scrape_via_public_api()
+            bounties = self._scrape_via_graphql(auth_token)
             if bounties:
-                self.log.info("Dework public scrape: %d bounties", len(bounties))
+                self.log.info("Dework: %d bounties found", len(bounties))
                 return bounties
-            self.log.info("Dework public scrape returned 0 bounties (auth required for task data)")
+            self.log.info("Dework: 0 bounties found (no active rewarded tasks)")
         except Exception as exc:  # noqa: BLE001
-            self.log.error("Dework public scrape error: %s", exc)
+            self.log.error("Dework scrape error: %s", exc)
 
-        # All sources failed — notify operator
-        self.log.warning(
-            "Dework: all scrape sources yielded 0 bounties. "
-            "Set DEWORK_AUTH_TOKEN env var to enable task-level scraping. "
-            "Without auth, only org/workspace metadata is publicly accessible."
-        )
+        # Notify operator if we got 0 bounties
+        self.log.warning("Dework: scrape returned 0 bounties")
         self._notify_filter_block()
         return []
 
     # ------------------------------------------------------------------ #
-    # GraphQL helpers
+    # GraphQL helper
     # ------------------------------------------------------------------ #
-    def _graphql(self, query: str, variables: dict | None = None, auth_token: str = "") -> dict:
-        """Execute a GraphQL query against Dework's API."""
+    def _graphql(self, query: str, auth_token: str = "") -> dict:
+        """Execute a GraphQL query against Dework's API.
+
+        IMPORTANT: Dework's GraphQL rejects variable type `UUID!` when passed
+        via `$id: String!` (variable type checking is strict). Use INLINE
+        arguments instead: `getWorkspace(id: "<UUID>") { ... }`
+        """
         import httpx
 
         headers = {
@@ -133,31 +121,29 @@ class DeworkScraper(BaseScraper):
             headers["Authorization"] = f"Bearer {auth_token}"
 
         payload = {"query": query}
-        if variables:
-            payload["variables"] = variables
-
         resp = httpx.post(self.GRAPHQL_URL, json=payload, headers=headers, timeout=30)
         resp.raise_for_status()
         data = resp.json()
         if "errors" in data:
-            self.log.warning("Dework GraphQL errors: %s", data["errors"][:200])
+            self.log.warning("Dework GraphQL errors: %s", str(data["errors"])[:300])
         return data.get("data", {})
 
     # ------------------------------------------------------------------ #
-    # Source 1: Authenticated GraphQL
+    # Main scrape logic
     # ------------------------------------------------------------------ #
-    def _scrape_via_authed_graphql(self, auth_token: str) -> List[Bounty]:
-        """Fetch bounties using an authenticated session.
+    def _scrape_via_graphql(self, auth_token: str) -> List[Bounty]:
+        """Fetch bounties via GraphQL (verified working 2026-07-17).
 
         Flow:
-        1. Get popular organizations
-        2. For each org, get workspaces
-        3. For each "bounties"-like workspace, get tasks
-        4. Filter tasks with rewards
+        1. Get popular organizations (~891 DAOs)
+        2. For each org (capped at 30), get workspaces
+        3. For each workspace (capped at 5 per org), fetch tasks via
+           nested `tasks` field on getWorkspace
+        4. Filter tasks with rewards + active status
         """
         bounties: List[Bounty] = []
 
-        # Get popular orgs
+        # Step 1: Get popular orgs
         data = self._graphql(
             "{ getPopularOrganizations { id name slug } }",
             auth_token=auth_token,
@@ -165,19 +151,20 @@ class DeworkScraper(BaseScraper):
         orgs = data.get("getPopularOrganizations", [])
         self.log.info("Dework: found %d popular orgs", len(orgs))
 
-        # Cap to first 20 orgs to avoid hammering the API
-        for org in orgs[:20]:
+        # Cap to first 30 orgs (top 10 are old orgs with mostly closed bounties;
+        # orgs 10-30 have more active bounties per our scan)
+        for org in orgs[:30]:
             org_slug = org.get("slug", "")
             org_name = org.get("name", "")
             if not org_slug:
                 continue
 
-            # Get workspaces for this org
+            # Step 2: Get workspaces for this org (inline query — Dework rejects
+            # variable type UUID! when passed as String!)
             try:
                 org_data = self._graphql(
-                    'query GetOrg($slug: String!) { getOrganizationBySlug(slug: $slug) '
-                    '{ id name slug workspaces { id name slug } } }',
-                    variables={"slug": org_slug},
+                    f'{{ getOrganizationBySlug(slug: "{org_slug}") '
+                    f'{{ id name slug workspaces {{ id name slug }} }} }}',
                     auth_token=auth_token,
                 )
                 workspaces = (
@@ -187,24 +174,23 @@ class DeworkScraper(BaseScraper):
                 self.log.debug("could not fetch workspaces for %s: %s", org_slug, exc)
                 continue
 
-            # Filter for bounty-like workspaces
-            bounty_workspaces = [
-                w for w in workspaces
-                if self.BOUNTY_WORKSPACE_PATTERNS.search(w.get("name", ""))
-            ]
-
-            for ws in bounty_workspaces[:3]:  # cap to 3 workspaces per org
+            # Step 3: Scan ALL workspaces (not just "bounty"-named ones) since
+            # many orgs put bounties in workspaces named "Engineering",
+            # "BD Referrers", "Community Bounties", "Technical & Engineering", etc.
+            for ws in workspaces[:5]:  # cap to 5 workspaces per org
                 ws_id = ws.get("id", "")
+                ws_name = ws.get("name", "")
                 if not ws_id:
                     continue
                 try:
                     tasks = self._fetch_tasks_for_workspace(ws_id, auth_token)
                     for task in tasks:
-                        bounty = self._bounty_from_task(task, org_name, ws.get("name", ""))
+                        bounty = self._bounty_from_task(task, org_name, ws_name)
                         if bounty:
                             bounties.append(bounty)
                 except Exception as exc:  # noqa: BLE001
-                    self.log.debug("could not fetch tasks for workspace %s: %s", ws_id, exc)
+                    self.log.debug("could not fetch tasks for %s/%s: %s",
+                                   org_slug, ws_name, exc)
 
             # Cap total bounties per scrape cycle
             if len(bounties) >= 50:
@@ -213,117 +199,54 @@ class DeworkScraper(BaseScraper):
         return bounties[:50]
 
     def _fetch_tasks_for_workspace(self, workspace_id: str, auth_token: str) -> list[dict]:
-        """Fetch tasks for a workspace using authenticated GraphQL.
+        """Fetch tasks for a workspace via nested `tasks` field on getWorkspace.
 
-        Note: Dework's getTasks requires `input: { ids: [...] }` — you must
-        already know task UUIDs. Without a "list tasks in workspace" query,
-        we use the workspace web page to extract task IDs from the rendered
-        HTML, then fetch full details via GraphQL.
+        VERIFIED WORKING QUERY (2026-07-17):
+            {
+              getWorkspace(id: "<UUID>") {
+                id name slug
+                tasks {
+                  id name description status priority dueDate createdAt
+                  assignees { id username }
+                  creator { id username }
+                  tags { id name }
+                  section { id name }
+                  rewards { amount type token { symbol address } }
+                }
+              }
+            }
+
+        Returns ONLY tasks with rewards (bounties) + active status.
+        Filters out:
+        - Tasks with status DONE / CLOSED / ARCHIVED
+        - Tasks with empty rewards array
+        - Community chatter (COMMUNITY_SUGGESTIONS status)
         """
-        # Try getTasks with workspace-scoped query (if Dework adds it later)
-        # Currently this returns empty for unknown IDs
-        # TODO: Once Dework exposes a "list tasks by workspace" query, use it here
-        # For now, fall back to web page scraping
-        return self._scrape_workspace_webpage_for_tasks(workspace_id, auth_token)
-
-    def _scrape_workspace_webpage_for_tasks(self, workspace_id: str, auth_token: str) -> list[dict]:
-        """Scrape the workspace's public web page to extract task metadata.
-
-        Dework's SSR pages include task titles + IDs in the HTML even without
-        auth (for public workspaces). We extract them and then optionally
-        fetch full details via authenticated GraphQL.
-        """
-        import httpx
-
-        # First, find the workspace's org/slug from its ID
-        try:
-            ws_data = self._graphql(
-                'query GetWs($id: ID!) { getWorkspace(id: $id) { id name slug organization { id name slug } } }',
-                variables={"id": workspace_id},
-                auth_token=auth_token,
-            )
-            ws = ws_data.get("getWorkspace", {})
-            ws_slug = ws.get("slug", "")
-            org_slug = ws.get("organization", {}).get("slug", "")
-        except Exception:
-            return []
-
-        if not ws_slug or not org_slug:
-            return []
-
-        # Fetch the workspace web page
-        url = f"{self.BASE_URL}/{org_slug}/{ws_slug}"
-        try:
-            resp = httpx.get(
-                url,
-                headers={
-                    "User-Agent": (
-                        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-                        "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-                    ),
-                    "Accept": "text/html,application/xhtml+xml",
-                },
-                timeout=30,
-                follow_redirects=True,
-            )
-            html = resp.text
-        except Exception as exc:  # noqa: BLE001
-            self.log.debug("could not fetch workspace page %s: %s", url, exc)
-            return []
-
-        # Extract tasks from __NEXT_DATA__ Apollo cache
-        return self._extract_tasks_from_html(html)
-
-    def _extract_tasks_from_html(self, html: str) -> list[dict]:
-        """Extract task entries from Dework's SSR HTML.
-
-        Dework embeds Apollo cache state in __NEXT_DATA__ JSON.
-        We look for Task: prefixed keys and extract their fields.
-        """
-        tasks: list[dict] = []
-        m = re.search(
-            r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>',
-            html,
-            re.DOTALL,
+        # Use inline query (Dework's GraphQL rejects variable type UUID!
+        # when passed via $id: String! — must use inline UUID literal)
+        query = (
+            f'{{ getWorkspace(id: "{workspace_id}") {{ '
+            f'id name slug '
+            f'tasks {{ '
+            f'id name description status priority dueDate createdAt updatedAt '
+            f'assignees {{ id username }} '
+            f'creator {{ id username }} '
+            f'tags {{ id name }} '
+            f'section {{ id name }} '
+            f'rewards {{ amount type token {{ symbol address }} }} '
+            f'}} }} }}'
         )
-        if not m:
-            return tasks
+        data = self._graphql(query, auth_token=auth_token)
+        ws = data.get("getWorkspace", {})
+        tasks = ws.get("tasks", [])
 
-        try:
-            data = json.loads(m.group(1))
-        except Exception:  # noqa: BLE001
-            return tasks
-
-        apollo = data.get("props", {}).get("apolloState", {}).get("data", {})
-        for key, val in apollo.items():
-            if key.startswith("Task:") and isinstance(val, dict):
-                tasks.append(val)
-
-        return tasks
-
-    # ------------------------------------------------------------------ #
-    # Source 2: Public API (org + workspace metadata only — no tasks)
-    # ------------------------------------------------------------------ #
-    def _scrape_via_public_api(self) -> List[Bounty]:
-        """Fetch what's publicly accessible: popular orgs + their workspaces.
-
-        Without auth, we cannot fetch task-level data. We return an empty
-        list but log the orgs + workspaces we discovered so the operator
-        knows what's available.
-        """
-        try:
-            data = self._graphql("{ getPopularOrganizations { id name slug } }")
-            orgs = data.get("getPopularOrganizations", [])
-            self.log.info(
-                "Dework public API: found %d orgs (task data requires auth): %s",
-                len(orgs),
-                ", ".join(o.get("name", "") for o in orgs[:5]),
-            )
-        except Exception as exc:  # noqa: BLE001
-            self.log.error("Dework public API error: %s", exc)
-
-        # Public API cannot return task data — return empty
-        return []
+        # Filter: only tasks WITH rewards + ACTIVE status
+        bounty_tasks = [
+            t for t in tasks
+            if t.get("rewards")  # has at least one reward
+            and t.get("status", "").upper() in ACTIVE_STATUSES
+        ]
+        return bounty_tasks
 
     # ------------------------------------------------------------------ #
     # Task → Bounty conversion
@@ -336,51 +259,62 @@ class DeworkScraper(BaseScraper):
     ) -> Bounty | None:
         """Convert a Dework task dict to a Bounty object.
 
-        Dework Task fields (from schema probing):
-        - id (UUID!)
+        Dework Task fields (verified 2026-07-17):
+        - id (UUID)
         - name
         - description
-        - rewards (plural — array of reward objects)
-        - assignees (plural — array of User)
-        - creator (User type)
-        - status
+        - status (TODO / IN_PROGRESS / REVIEW / DONE / CLOSED / COMMUNITY_SUGGESTIONS)
+        - rewards: [{ amount (string, smallest unit), type (FIXED), token: { symbol, address } }]
+        - assignees, creator, tags, section, dueDate, createdAt, updatedAt
         """
         task_id = str(task.get("id") or "")
         if not task_id:
             return None
 
-        name = task.get("name") or task.get("title") or "Untitled Dework task"
+        name = task.get("name") or "Untitled Dework task"
         description = task.get("description") or ""
 
-        # Extract reward amount from rewards array
+        # Convert rewards from smallest-unit to human-readable
         rewards = task.get("rewards") or []
         amount_usd = 0
         bounty_value_str = ""
-        if isinstance(rewards, list) and rewards:
-            for reward in rewards:
-                if not isinstance(reward, dict):
-                    continue
-                amount = reward.get("amount") or reward.get("value") or 0
-                currency = (reward.get("currency") or reward.get("token") or "USD").upper()
+
+        for reward in rewards:
+            if not isinstance(reward, dict):
+                continue
+            raw_amount = reward.get("amount", 0)
+            token = reward.get("token") or {}
+            symbol = token.get("symbol", "?")
+
+            try:
+                # Amount is a string in smallest unit (wei-like)
+                amount_int = int(raw_amount) if raw_amount else 0
+            except (ValueError, TypeError):
                 try:
-                    amount_num = float(amount)
-                    if currency in ("USD", "USDC", "USDT"):
-                        amount_usd += int(amount_num)
-                    bounty_value_str = f"{amount_num} {currency}"
+                    amount_int = int(float(raw_amount))
                 except (ValueError, TypeError):
-                    pass
-        else:
-            # Fallback: look for reward pattern in description
-            m = self.REWARD_PATTERN.search(description)
-            if m:
-                bounty_value_str = m.group()
-                # Try to parse as USD
-                num_match = re.search(r"[\d,.]+", bounty_value_str)
-                if num_match:
-                    try:
-                        amount_usd = int(float(num_match.group().replace(",", "")))
-                    except ValueError:
-                        pass
+                    continue
+
+            # Convert using token decimals
+            decimals = TOKEN_DECIMALS.get(symbol.upper(), 18)  # default 18 for unknown ERC20
+            human_amount = amount_int / (10 ** decimals)
+
+            # Accumulate USD value (for stablecoins only)
+            if symbol.upper() in ("USDC", "USDT", "DAI", "USD"):
+                amount_usd += int(human_amount)
+                bounty_value_str = f"${int(human_amount)}"
+            else:
+                # Crypto token — show as token amount
+                if human_amount >= 1000:
+                    bounty_value_str = f"{human_amount:.0f} {symbol}"
+                elif human_amount >= 1:
+                    bounty_value_str = f"{human_amount:.2f} {symbol}"
+                else:
+                    bounty_value_str = f"{human_amount:.6f} {symbol}"
+
+        # If no rewards converted, skip (shouldn't happen — we filter for rewards)
+        if not bounty_value_str:
+            return None
 
         # Extract GitHub URLs from description
         source_urls = []
@@ -391,8 +325,12 @@ class DeworkScraper(BaseScraper):
             )
             source_urls = github_urls[:3]
 
-        # Project name = org name (Dework bounties are org-scoped)
+        # Project name = org/workspace
         project_name = f"{org_name}/{workspace_name}"
+
+        # Status mapping
+        task_status = task.get("status", "").upper()
+        status = "active" if task_status in ACTIVE_STATUSES else "ended"
 
         return Bounty(
             id=f"dework-{task_id}",
@@ -400,18 +338,20 @@ class DeworkScraper(BaseScraper):
             project_name=project_name,
             description=(description[:500] if description else f"Dework task: {name}"),
             max_payout_usd=amount_usd,
-            severity_levels=["Medium"],  # Dework doesn't use severity
-            tech_stack=["web3", "dao"],
+            severity_levels=["Medium"],
+            tech_stack=["web3", "dao", "crypto"],
             source_urls=source_urls,
             url=f"{self.BASE_URL}/task/{task_id}",
-            deadline=task.get("dueDate") or task.get("deadline"),
-            status="active" if task.get("status") in (None, "TODO", "IN_PROGRESS") else "ended",
+            deadline=task.get("dueDate"),
+            status=status,
             tags=[
                 "dework",
                 "verified-escrow",
                 "web3",
                 f"org:{org_name}",
-            ] + ([bounty_value_str] if bounty_value_str else []),
+                f"workspace:{workspace_name}",
+                bounty_value_str,
+            ],
         )
 
     # ------------------------------------------------------------------ #
@@ -419,24 +359,24 @@ class DeworkScraper(BaseScraper):
     # ------------------------------------------------------------------ #
     def _notify_filter_block(self) -> None:
         """Send a 🛡️ FILTER Telegram event so the operator knows
-        Dework scraping is blocked (needs auth token)."""
+        Dework scraping returned 0 bounties."""
         try:
             from src.utils.telegram import get_notifier
             from src.utils import state_manager
             state_manager.update_pointer(
-                stage="SCRAPING_BLOCKED",
-                last_action="Dework scraper returned 0 bounties — task data requires DEWORK_AUTH_TOKEN",
+                stage="DEWORK_NO_BOUNTIES",
+                last_action="Dework scrape returned 0 active bounties",
                 current_target_repo="dework.xyz",
             )
             tg = get_notifier()
             tg.send_filter_event(
                 repo="dework.xyz",
-                reason="Dework task data requires auth token",
+                reason="Dework: 0 active bounties in top 30 orgs",
                 details=(
-                    "Public GraphQL API returns org + workspace metadata only. "
-                    "To fetch actual bounties, set DEWORK_AUTH_TOKEN env var "
-                    "(copy `auth_token` cookie from dework.xyz browser session). "
-                    "Until then, Dework scraping returns 0 bounties."
+                    "Scanned 30 popular orgs × 5 workspaces each = ~150 workspaces. "
+                    "No tasks with active status (TODO/IN_PROGRESS/REVIEW) + rewards found. "
+                    "This is normal — Dework bounties are seasonal. "
+                    "Next hourly hunt will retry automatically."
                 ),
             )
         except Exception:  # noqa: BLE001

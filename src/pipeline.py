@@ -150,12 +150,23 @@ def analyze_bounty(bounty: Bounty) -> dict[str, Any]:
         "submittable_count": 0,
     }
 
-    # 1. Download contract source
+    # 1. Download source code (multi-language — was Solidity-only)
     downloader = ContractDownloader()
     source_code = None
+    detected_language = None
     for url in bounty.source_urls:
         source_code = downloader.download(url)
         if source_code:
+            # Detect language from the downloaded source
+            detected_language = downloader._detect_language(
+                # Build a fake tree entry from the source for detection
+                # (the source contains "// File: path" headers we can parse)
+                [
+                    {"path": line.replace("// File: ", "").strip(), "type": "blob"}
+                    for line in source_code.split("\n")
+                    if line.startswith("// File: ")
+                ]
+            ) if "// File: " in source_code else None
             break
 
     if not source_code:
@@ -164,13 +175,15 @@ def analyze_bounty(bounty: Bounty) -> dict[str, Any]:
 
     result["source_downloaded"] = True
     result["source_chars"] = len(source_code)
-    log.info("[%s] downloaded %d chars of source code", bounty.project_name, len(source_code))
+    log.info(
+        "[%s] downloaded %d chars of source code (language: %s)",
+        bounty.project_name, len(source_code), detected_language or "auto-detect",
+    )
 
     # 2. AI vulnerability detection + verification (merged — single AI call)
-    # The detector now does detection AND 10-step verification in one pass
-    # Only VERIFIED and INCONCLUSIVE findings are returned (FALSE_POSITIVEs discarded)
+    # Multi-language: detector uses language-aware prompts (Solidity, JS, Python, etc.)
     detector = VulnerabilityDetector()
-    findings = detector.analyze(source_code, bounty.project_name)
+    findings = detector.analyze(source_code, bounty.project_name, language=detected_language)
     result["findings"] = [f.to_dict() for f in findings]
 
     if not findings:
