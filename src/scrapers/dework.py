@@ -149,9 +149,9 @@ class DeworkScraper(BaseScraper):
         orgs = data.get("getPopularOrganizations", [])
         self.log.info("Dework: found %d popular orgs", len(orgs))
 
-        # Cap to first 30 orgs (top 10 are old orgs with mostly closed bounties;
-        # orgs 10-30 have more active bounties per our scan)
-        for org in orgs[:30]:
+        # Cap to first 50 orgs (top 10 are old orgs with mostly closed bounties;
+        # orgs 10-50 have more active bounties per our scan)
+        for org in orgs[:50]:
             org_slug = org.get("slug", "")
             org_name = org.get("name", "")
             if not org_slug:
@@ -191,10 +191,10 @@ class DeworkScraper(BaseScraper):
                                    org_slug, ws_name, exc)
 
             # Cap total bounties per scrape cycle
-            if len(bounties) >= 50:
+            if len(bounties) >= 30:
                 break
 
-        return bounties[:50]
+        return bounties[:30]
 
     def _fetch_tasks_for_workspace(self, workspace_id: str, auth_token: str) -> list[dict]:
         """Fetch tasks for a workspace via nested `tasks` field on getWorkspace.
@@ -222,6 +222,10 @@ class DeworkScraper(BaseScraper):
         """
         # Use inline query (Dework's GraphQL rejects variable type UUID!
         # when passed via $id: String! — must use inline UUID literal)
+        # VERIFIED field names (2026-07-17):
+        # - TaskTag has: id, label, color (NOT name)
+        # - TaskSection has: id, name
+        # - PaymentToken has: symbol, address, name (NOT decimals/chainId)
         query = (
             f'{{ getWorkspace(id: "{workspace_id}") {{ '
             f'id name slug '
@@ -229,7 +233,7 @@ class DeworkScraper(BaseScraper):
             f'id name description status priority dueDate createdAt updatedAt '
             f'assignees {{ id username }} '
             f'creator {{ id username }} '
-            f'tags {{ id name }} '
+            f'tags {{ id label color }} '
             f'section {{ id name }} '
             f'rewards {{ amount type token {{ symbol address }} }} '
             f'}} }} }}'
