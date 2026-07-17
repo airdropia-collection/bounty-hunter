@@ -25,11 +25,41 @@ jobs:
     permissions:
       contents: write  # required to commit state.json update
     steps:
-      - name: Checkout repo (so we can update state.json)
+      - name: Checkout repo (so we can update state.json + run onboarding check)
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GH_PAT }}
           fetch-depth: 1
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # ──────────────────────────────────────────────────────────────── #
+      # PLATFORM ONBOARDING GATE (agent.md §4.0)
+      # Verifies that the bot's GitHub account has completed all required
+      # platform-specific actions (follow / star / CLA / etc.) BEFORE
+      # submitting the PR. If any requirement is missing, the PR submission
+      # is BLOCKED and a 🛡️ FILTER Telegram event is emitted.
+      #
+      # This prevents recurrence of the 2026-07-17 incident where PR #252
+      # was blocked by the MergeOS maintainer for missing Gate 1 (badges).
+      # ──────────────────────────────────────────────────────────────── #
+      - name: 🛡️ Platform Onboarding Gate
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python -m src.utils.platform_onboarding "${{ github.event.inputs.upstream_repo }}" \
+            && echo "✅ Onboarding complete — proceeding with PR submission" \
+            || (
+              echo "❌ Onboarding INCOMPLETE — PR submission blocked (agent.md §4.0)"
+              echo "Complete the missing actions listed in the Telegram 🛡️ FILTER alert,"
+              echo "then re-trigger this workflow."
+              exit 1
+            )
 
       - name: Create PR via GitHub API
         env:

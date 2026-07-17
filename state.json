@@ -1,10 +1,11 @@
 {
   "system_status": "RUNNING",
-  "last_session_sync": "2026-07-17T01:44:03.612533+00:00",
+  "last_session_sync": "2026-07-17T03:46:00.175324+00:00",
   "current_execution_pointer": {
-    "stage": "MONITORING_AND_HUNTING",
-    "last_action": "Successfully submitted PR #252 to mergeos-bounties/Loru",
-    "current_target_repo": "NONE"
+    "stage": "ONBOARDING_BLOCKED",
+    "last_action": "MergeOS Gate 1 blocked on PR #252 \u2014 operator must complete 3 manual actions",
+    "current_target_repo": "mergeos-bounties/Loru",
+    "updated_at": "2026-07-17T03:46:00.175318+00:00"
   },
   "active_monitors": {
     "jwallet/spy-spotify": {
@@ -21,9 +22,18 @@
     },
     "mergeos-bounties/Loru": {
       "pr_number": 252,
-      "status": "UNDER_REVIEW",
+      "status": "NEEDS_REVISION",
       "bounty_value": "50 MRG",
-      "platform": "MergeOS"
+      "platform": "MergeOS",
+      "revision_reason": "Gate 1 (badges) blocked by maintainer @TUPM96 \u2014 missing org follow + 2 core repo stars",
+      "gate_blocked": "Gate 1: badges",
+      "required_actions": [
+        "Follow https://github.com/mergeos-bounties",
+        "Star https://github.com/mergeos-bounties/mergeos",
+        "Star https://github.com/mergeos-bounties/mergeos-contracts"
+      ],
+      "blocked_at": "2026-07-17T02:30:55Z",
+      "updated_at": "2026-07-17T03:46:00.175260+00:00"
     }
   },
   "blacklisted_repos": [

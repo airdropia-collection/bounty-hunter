@@ -19,6 +19,7 @@ Before accepting any issue from IssueHunt/Bountycaster, verify it against these 
 
 ## 4. Pre-PR Forensic Testing Framework
 Before creating a cross-repo branch or raising a Pull Request, the code runner MUST execute these local tests:
+- **Platform Onboarding Gate (NEW — agent.md §4.0):** Check `src/utils/platform_onboarding.py` for the upstream repo's platform-specific requirements (follow / star / CLA / terms). If any requirement is missing, BLOCK PR submission and emit a 🛡️ FILTER Telegram event. See `docs/platform_policies/mergeos.md` for the MergeOS 4-gate policy (badges → security → tests → merge). Failure to satisfy Gate 1 caused PR #252 to be blocked on 2026-07-17 — do NOT repeat this mistake.
 - Syntax & Compile Check: Run language-specific compilers/linters (e.g., eslint, flake8, dotnet build) to ensure ZERO code syntax errors.
 - Local Regression Check: Ensure the change does not break existing application modules.
 - Security Ingestion Scan: Run a quick automated check to ensure it does not accidentally hardcode any API keys or credentials.
