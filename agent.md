@@ -123,13 +123,104 @@ every hour, the bot automatically:
 4. Submits PRs for verified findings (via `submit-pr.yml`)
 5. Auto-notifies Telegram at every stage (scanning / finding / PR submitted)
 
-**GitHub Actions free tier warning:** 24 runs/day × ~5 min/run = ~120
-min/day = ~3600 min/month. Free tier is 2000 min/month — we will EXCEED
-this. Mitigations:
-- Workflow `timeout-minutes: 15` (was 30)
-- `🛑 Check PAUSED state` exits early if user pauses (~30 sec cost)
-- Health check is non-blocking (`|| true`)
-- Watch usage at https://github.com/settings/billing
+**GitHub Actions billing (CORRECTED 2026-07-17):**
+- ✅ Repo `airdropia-collection/bounty-hunter` is **PUBLIC**
+- ✅ GitHub Actions is **FREE & UNLIMITED** for public repos on Linux runners
+- ❌ Earlier warning about 2000 min/month limit was WRONG — that's for private repos only
+- ✅ We can run hourly (or even more frequently) without billing concerns
+- ✅ Current usage: ~16 min for last 30 runs (negligible)
 
-If we hit limits, fallback to every-2-hours: `cron: '0 */2 * * *'`.
+### PAT Operations Matrix — which PAT does what, and HOW
+
+This is the SINGLE source of truth. Whenever you (the AI operator) need to
+perform a GitHub operation, look up the operation below to know which PAT
+to use and which mechanism (local API call vs workflow_dispatch).
+
+| Operation | PAT | Mechanism | Why |
+|---|---|---|---|
+| Push commit to `airdropia-collection/bounty-hunter` | Local fine-grained | `git push` | Local PAT has contents:write on this repo |
+| Trigger any workflow_dispatch | Local fine-grained | `curl POST /actions/workflows/{id}/dispatches` | Local PAT has actions:write |
+| Read public GitHub API (issues, PRs, repos) | Local fine-grained | `curl GET /repos/...` | Public reads work with any token |
+| Create cross-org PR (submit fix to upstream) | **GH_PAT secret** | `submit-pr.yml` workflow | Cross-org PR creation needs Classic PAT with full `repo` scope |
+| Post comment on cross-org PR/issue | **GH_PAT secret** | `mergeos-onboarding.yml` or new `cross-org-comment.yml` workflow | Cross-org comments need Classic PAT |
+| Follow a user/org | **GH_PAT secret** | `mergeos-onboarding.yml` workflow | Needs `user:follow` scope (Classic PAT only) |
+| Star a repo | **GH_PAT secret** | `mergeos-onboarding.yml` workflow | Needs `public_repo` scope (Classic PAT only) |
+| Fork a public repo into our org | **GH_PAT secret** | Inline in hunt/submit workflow | Needs `repo` scope |
+| Delete a fork | **GH_PAT secret** | `fork-cleanup.yml` workflow | Needs `repo` scope |
+| Read cross-org issue/PR data | Either PAT | Local API call | Public reads work |
+| Verify follow/star state | **GH_PAT secret** | Inside a workflow | Local PAT gets 403 on `/user/following/{x}` |
+| Update state.json | Either PAT | Inside a workflow (commits via GH_PAT) | Workflows have contents:write via GITHUB_TOKEN or GH_PAT |
+
+**The Golden Rule (re-stated for emphasis):**
+If the operation involves writing to a repo OUTSIDE `airdropia-collection/`
+(cross-org PR, cross-org comment, follow, star), you MUST use the `GH_PAT`
+secret inside a GitHub Actions workflow. The local fine-grained PAT will
+return HTTP 403 for all such operations.
+
+### Verified Workflow Catalog (as of 2026-07-17)
+
+| Workflow | Cron | Purpose | Auto-TG? |
+|---|---|---|---|
+| `hunt.yml` | `0 * * * *` (hourly) | Scrape IssueHunt+Dework → AI analyze → submit PRs | ✅ |
+| `pr-monitor.yml` | `*/30 * * * *` (every 30min) | Check PR statuses + hourly heartbeat | ✅ |
+| `fork-cleanup.yml` | `0 */6 * * *` (every 6h) | Delete MERGED/CLOSED forks (respect UNDER_REVIEW) | ✅ |
+| `telegram-handler.yml` | `*/5 * * * *` (every 5min) | Drain 🛑/▶️ button presses from Telegram | ✅ |
+| `submit-pr.yml` | manual (workflow_dispatch) | Submit a PR via GH_PAT (with onboarding gate) | ✅ |
+| `mergeos-onboarding.yml` | manual | Follow+star MergeOS + comment on PR via GH_PAT | ✅ |
+| `notify.yml` | manual | One-off operator announcements to Telegram | n/a |
+| `cleanup-prs.yml` | manual | Close duplicate PRs | n/a |
+| `ci.yml` | on push/PR | Run tests (ruff, pytest) | n/a |
+| `review-bot.yml` | on issue comment | Respond to /submit, /reject commands in issues | n/a |
+
+## 7. Operations Playbook (for the AI operator)
+
+When you (the AI operator) are invoked, follow this checklist BEFORE doing
+anything else:
+
+### Step 1: Read state.json
+```bash
+cat /home/z/my-project/bounty-hunter/state.json | jq .
+```
+Check:
+- `system_status` — if PAUSED, ask user before proceeding
+- `current_execution_pointer.stage` — where the bot was last
+- `active_monitors` — what PRs are being tracked + their statuses
+- `blacklisted_repos` — what to never touch again
+
+### Step 2: Check pending work
+- Any PR with status `NEEDS_REVISION`? → Check the PR comments to see what
+  maintainer requested → fix and push to the existing branch
+- Any PR with status `UNDER_REVIEW` for >7 days? → Consider pinging with a
+  polite comment via GH_PAT workflow
+- Any new bounties scraped since last hunt? → Check `state/bounties_seen.json`
+
+### Step 3: Trigger hourly hunt (if user asks for new bounty)
+```bash
+GH_TOKEN=$(git config --get remote.origin.url | sed -n 's|https://x-access-token:\([^@]*\)@.*|\1|p')
+curl -X POST -H "Authorization: token $GH_TOKEN" \
+  -H "Accept: application/vnd.github+json" \
+  -d '{"ref":"main","inputs":{"platform":"all","dry_run":"false","max_bounties":"5"}}' \
+  "https://api.github.com/repos/airdropia-collection/bounty-hunter/actions/workflows/hunt.yml/dispatches"
+```
+
+### Step 4: For any cross-org operation (PR submission, comment, follow, star)
+**NEVER** try to do it locally with the fine-grained PAT — it will fail with
+HTTP 403. Instead:
+1. Identify which workflow does the operation (`submit-pr.yml`, `mergeos-onboarding.yml`)
+2. Trigger it via `workflow_dispatch` API call (local PAT CAN do this)
+3. Wait for the workflow to complete (poll the run status)
+4. Verify the operation succeeded by reading the workflow logs
+
+### Step 5: Never manually trigger Telegram notifications
+Every workflow that does work has a built-in Telegram step. If you find
+yourself wanting to call `notify.yml` to announce something the bot just
+did, STOP — that notification should have been emitted by the workflow
+that did the work. Only use `notify.yml` for genuine one-off operator
+announcements (e.g. "deployed new feature X", "platform migrated").
+
+### Step 6: Always update state.json after major actions
+- New PR submitted → `submit-pr.yml` auto-updates state.json
+- PR status changed → `pr-monitor.yml` auto-updates state.json
+- Repo blacklisted → manually add to `blacklisted_repos` array
+- Platform onboarding completed → update the monitor's `status` field
 
