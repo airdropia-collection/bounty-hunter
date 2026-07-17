@@ -110,6 +110,94 @@ def deduplicate(bounties: list[Bounty]) -> list[Bounty]:
     return fresh
 
 
+def verify_open_on_github(bounties: list[Bounty]) -> list[Bounty]:
+    """Filter out bounties whose GitHub issue is actually closed.
+
+    IssueHunt's `githubState` field is cached from when IssueHunt first
+    fetched the issue — sometimes years out of date. The real GitHub
+    state may have changed since (e.g., apache/incubator-superset#3821
+    shows as 'open' on IssueHunt but is actually 'closed' on GitHub).
+
+    This function makes a single GET /repos/{owner}/{repo}/issues/{n}
+    call per bounty and filters out any whose live state != 'open'.
+
+    Failures (rate limit, network, 404) are treated as 'keep' — we'd
+    rather analyze a possibly-closed bounty than miss a real one due
+    to a transient API error. A separate rate_limit check warns early.
+
+    Added 2026-07-17 after doubt-driven review of bot issue #24 found
+    that apache/incubator-superset#3821 was surfacing as actionable
+    despite being closed on GitHub since 2019.
+    """
+    if not bounties:
+        return bounties
+
+    gh = GitHubClient()
+    if gh._dry_run:
+        log.info("[DRY-RUN] skipping GitHub state verification (would call API %d times)", len(bounties))
+        return bounties
+
+    import re as _re  # noqa: PLC0415
+
+    import httpx  # noqa: PLC0415
+
+    verified: list[Bounty] = []
+    skipped = 0
+    for b in bounties:
+        # Only verify bounties that have a GitHub source URL
+        github_url = next((u for u in b.source_urls if "github.com" in u), None)
+        if not github_url:
+            verified.append(b)
+            continue
+
+        # Parse owner/repo/number from URL like
+        # https://github.com/owner/repo/issues/123
+        m = _re.match(r"https?://github\.com/([^/]+)/([^/]+)/issues/(\d+)", github_url)
+        if not m:
+            verified.append(b)
+            continue
+
+        owner, repo, num = m.group(1), m.group(2), m.group(3)
+        api_url = f"https://api.github.com/repos/{owner}/{repo}/issues/{num}"
+
+        try:
+            # Use httpx directly (GitHubClient wraps issue creation, not reads)
+            # Auth via GH_PAT env var if set, otherwise anonymous (lower rate limit)
+            headers = {"Accept": "application/vnd.github+json"}
+            gh_pat = os.environ.get("GH_PAT") or os.environ.get("GITHUB_TOKEN")
+            if gh_pat:
+                headers["Authorization"] = f"token {gh_pat}"
+
+            resp = httpx.get(api_url, headers=headers, timeout=15, follow_redirects=True)
+            if resp.status_code == 404:
+                log.warning("[%s] GitHub issue not found (404) — skipping", b.project_name)
+                skipped += 1
+                continue
+            if resp.status_code == 301:
+                # Repo renamed — follow redirect (httpx already does, but just in case)
+                log.info("[%s] GitHub redirect — keeping for now", b.project_name)
+                verified.append(b)
+                continue
+            resp.raise_for_status()
+            data = resp.json()
+            live_state = data.get("state", "open")
+            if live_state != "open":
+                log.info(
+                    "[%s] GitHub state is '%s' (IssueHunt said 'open') — skipping stale bounty",
+                    b.project_name, live_state,
+                )
+                skipped += 1
+                continue
+            verified.append(b)
+        except Exception as exc:
+            # On any error, KEEP the bounty — better to analyze than to miss it
+            log.warning("[%s] GitHub verify failed (%s) — keeping", b.project_name, exc)
+            verified.append(b)
+
+    log.info("verify_open_on_github: %d -> %d (skipped %d stale-closed)", len(bounties), len(verified), skipped)
+    return verified
+
+
 def analyze_bounty(bounty: Bounty) -> dict[str, Any]:
     """Download source code and run AI vulnerability analysis on a bounty.
 
@@ -413,6 +501,9 @@ def main() -> int:
 
     # 2. Deduplicate
     fresh_bounties = deduplicate(bounties)
+
+    # 2b. Verify live GitHub state (IssueHunt's githubState is often stale)
+    fresh_bounties = verify_open_on_github(fresh_bounties)
 
     # 3. AI Analysis (optional)
     analysis_results: list[dict[str, Any]] = []
