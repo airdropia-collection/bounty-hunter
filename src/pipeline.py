@@ -278,7 +278,22 @@ def analyze_bounty(bounty: Bounty) -> dict[str, Any]:
         return result
 
     # Only VERIFIED findings are shown to user (INCONCLUSIVE logged but not shown)
-    verified_findings = [f for f in findings if f.verdict == "VERIFIED"]
+    # Added 2026-07-17: also filter out VERIFIED findings with confidence_adjusted
+    # below MIN_SUBMITTABLE_CONFIDENCE. The doubt-reviewer sometimes marks a
+    # finding as VERIFIED but with confidence 0.00 (meaning it couldn't actually
+    # substantiate the claim). These are noise — recent bot issues #24-#28 all
+    # had confidence 0.00 and were rejected on doubt-driven review.
+    MIN_SUBMITTABLE_CONFIDENCE = 0.30
+    verified_all = [f for f in findings if f.verdict == "VERIFIED"]
+    low_confidence_verified = [f for f in verified_all if f.confidence_adjusted < MIN_SUBMITTABLE_CONFIDENCE]
+    verified_findings = [f for f in verified_all if f.confidence_adjusted >= MIN_SUBMITTABLE_CONFIDENCE]
+
+    if low_confidence_verified:
+        log.info(
+            "[%s] %d VERIFIED finding(s) dropped (confidence < %.2f, likely false positive)",
+            bounty.project_name, len(low_confidence_verified), MIN_SUBMITTABLE_CONFIDENCE,
+        )
+
     result["reviewed_findings"] = [f.to_dict() for f in findings]
     result["submittable_count"] = len(verified_findings)
 
