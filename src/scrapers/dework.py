@@ -294,6 +294,64 @@ class DeworkScraper(BaseScraper):
         name = task.get("name") or "Untitled Dework task"
         description = task.get("description") or ""
 
+        # ── Identity-reveal filter (agent.md §Never: "reveal identity or private keys") ──
+        # Dework bounties that require KYC / invoice submission / identity reveal
+        # are auto-rejected. The bot operates pseudonymously; we never submit
+        # government IDs, legal names, or tax invoices to third-party platforms.
+        # Added 2026-07-17 per operator directive after the Avalanche/Dune Tasks
+        # bounty ($2500) was found to require KYC + invoice + identity reveal.
+        desc_lower = description.lower()
+        name_lower = name.lower()
+        IDENTITY_REVEAL_MARKERS = (
+            "kyc",
+            "know your customer",
+            "identity verification",
+            "reveal your identity",
+            "reveal identity",
+            "submit an invoice",
+            "submitting an invoice",
+            "invoice and revealing",
+            "tax form",
+            "w-9",
+            "w-8ben",
+            "government id",
+            "passport",
+            "driver's license",
+            "drivers license",
+            "national id",
+        )
+        for marker in IDENTITY_REVEAL_MARKERS:
+            if marker in desc_lower or marker in name_lower:
+                self.log.info(
+                    "[dework:%s] skipping — requires identity reveal (marker: %r)",
+                    task_id[:8], marker,
+                )
+                return None
+
+        # ── Non-code-task filter ──
+        # Dework hosts many "community moderator" / "telegram growth" /
+        # "social media manager" gigs that aren't code bounties. Skip tasks
+        # whose name strongly indicates non-code work (the description
+        # check is too noisy — many code tasks mention community in passing).
+        NON_CODE_NAME_MARKERS = (
+            "community moderator",
+            "telegram growth",
+            "telegram moderator",
+            "discord moderator",
+            "social media manager",
+            "community manager",
+            "marketing specialist",
+            "content creator",
+            "community outreach",
+        )
+        for marker in NON_CODE_NAME_MARKERS:
+            if marker in name_lower:
+                self.log.info(
+                    "[dework:%s] skipping — non-code task (marker: %r)",
+                    task_id[:8], marker,
+                )
+                return None
+
         # Convert rewards from smallest-unit to human-readable
         rewards = task.get("rewards") or []
         amount_usd = 0
