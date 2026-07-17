@@ -90,14 +90,22 @@ jobs:
         run: echo "PR created at $PR_URL"
 
       - name: 💾 Update state.json — register new active monitor
+        env:
+          PR_NUMBER: ${{ env.PR_NUMBER }}
+          PR_URL: ${{ env.PR_URL }}
+          UPSTREAM_REPO: ${{ env.UPSTREAM_REPO }}
+          PR_TITLE: ${{ github.event.inputs.pr_title }}
         run: |
-          python3 - <<'PYEOF'
-          import json
+          python3 - <<PYEOF
+          import json, os
           from pathlib import Path
           from datetime import datetime, timezone
 
-          upstream = "${{ github.event.inputs.upstream_repo }}"
-          pr_number = int("${PR_NUMBER}") if "${PR_NUMBER}".isdigit() else "${PR_NUMBER}"
+          upstream = os.environ["UPSTREAM_REPO"]
+          pr_number_raw = os.environ.get("PR_NUMBER", "")
+          pr_number = int(pr_number_raw) if pr_number_raw.isdigit() else pr_number_raw
+          pr_url = os.environ.get("PR_URL", "")
+          pr_title = os.environ.get("PR_TITLE", "")
 
           state_path = Path("state.json")
           state = json.loads(state_path.read_text()) if state_path.exists() else {}
@@ -106,8 +114,8 @@ jobs:
               "status": "UNDER_REVIEW",
               "bounty_value": "",
               "platform": "manual",
-              "pr_url": "${PR_URL}",
-              "pr_title": "${{ github.event.inputs.pr_title }}",
+              "pr_url": pr_url,
+              "pr_title": pr_title,
               "submitted_at": datetime.now(timezone.utc).isoformat(),
           }
           state["current_execution_pointer"] = {

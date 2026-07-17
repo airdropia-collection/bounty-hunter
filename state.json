@@ -1,10 +1,11 @@
 {
   "system_status": "RUNNING",
-  "last_session_sync": "2026-07-17T04:01:34.794945+00:00",
+  "last_session_sync": "2026-07-17T04:03:19.481633+00:00",
   "current_execution_pointer": {
     "stage": "PR_SUBMITTED",
-    "last_action": "Submitted PR #${PR_NUMBER} to marcosgriselli/SwipeableTabBarController",
-    "current_target_repo": "marcosgriselli/SwipeableTabBarController"
+    "last_action": "Submitted PR #128 to marcosgriselli/SwipeableTabBarController (resolves issue #52)",
+    "current_target_repo": "marcosgriselli/SwipeableTabBarController",
+    "updated_at": "2026-07-17T04:03:19.481630+00:00"
   },
   "active_monitors": {
     "jwallet/spy-spotify": {
@@ -35,13 +36,16 @@
       "updated_at": "2026-07-17T03:46:00.175260+00:00"
     },
     "marcosgriselli/SwipeableTabBarController": {
-      "pr_number": "${PR_NUMBER}",
+      "pr_number": 128,
       "status": "UNDER_REVIEW",
-      "bounty_value": "",
-      "platform": "manual",
-      "pr_url": "${PR_URL}",
+      "bounty_value": "$150",
+      "platform": "IssueHunt",
+      "pr_url": "https://github.com/marcosgriselli/SwipeableTabBarController/pull/128",
       "pr_title": "fix: prevent freeze on very fast swipes (#52)",
-      "submitted_at": "2026-07-17T04:01:34.794932+00:00"
+      "submitted_at": "2026-07-17T04:01:34.794932+00:00",
+      "issue_url": "https://github.com/marcosgriselli/SwipeableTabBarController/issues/52",
+      "issue_number": 52,
+      "fixed_at": "2026-07-17T04:03:19.481563+00:00"
     }
   },
   "blacklisted_repos": [
