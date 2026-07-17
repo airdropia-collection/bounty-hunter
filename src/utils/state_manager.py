@@ -246,13 +246,36 @@ def add_blacklist(repo: str, reason: str = "") -> None:
 
 
 def is_blacklisted(repo: str) -> bool:
+    """Check if a repo name is in the blacklist.
+
+    Matches flexibly: bounty.project_name often includes a '#N' suffix
+    (e.g., 'zardoy/space-squid#5') but the blacklist stores just the
+    repo path ('zardoy/space-squid'). We match if:
+      - exact equality, OR
+      - the input starts with '<blacklisted_entry>#' (issue suffix), OR
+      - the input starts with '<blacklisted_entry>/' (subpath)
+    """
+    if not repo:
+        return False
     state = read_state()
     bl = state.get("blacklisted_repos", [])
     for item in bl:
         if isinstance(item, str):
-            if item == repo:
-                return True
-        elif item.get("repo") == repo:
+            entry = item
+        elif isinstance(item, dict):
+            entry = item.get("repo", "")
+        else:
+            continue
+        if not entry:
+            continue
+        # Exact match
+        if entry == repo:
+            return True
+        # Issue-suffix match: 'zardoy/space-squid' matches 'zardoy/space-squid#5'
+        if repo.startswith(entry + "#"):
+            return True
+        # Subpath match: 'zardoy/space-squid' matches 'zardoy/space-squid/sub'
+        if repo.startswith(entry + "/"):
             return True
     return False
 

@@ -44,6 +44,7 @@
   "blacklisted_repos": [
     "ThanhTrucSolutions/OriLang",
     "iii123iii/Crystal-PDF",
+    "pannous/redox",
     "xevrion-v2/agent-playground",
     "zardoy/space-squid"
   ],
