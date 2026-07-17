@@ -63,6 +63,7 @@ TOKEN_DECIMALS_BY_SYMBOL = {
 TOKEN_DECIMALS_BY_ADDRESS = {
     # Binance Pegged USDC (BSC) — 18 decimals instead of standard 6
     "0x8ac76a51cc950d9822d68b8fe3717d61300c8399": 18,
+    "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d": 18,  # alt BSC USDC
     # Binance Pegged ETH (BSC) — 18 decimals
     "0x2170ed0880ac9a755fd29b2688956bd959f933f8": 18,
     # Binance Pegged BTC (BSC) — 18 decimals instead of standard 8
@@ -319,8 +320,14 @@ class DeworkScraper(BaseScraper):
             # (Binance Pegged USDC at 0x8AC76a51... has 18 decimals, not 6)
             if address and address in TOKEN_DECIMALS_BY_ADDRESS:
                 decimals = TOKEN_DECIMALS_BY_ADDRESS[address]
+            elif symbol in TOKEN_DECIMALS_BY_SYMBOL:
+                decimals = TOKEN_DECIMALS_BY_SYMBOL[symbol]
+                # Heuristic: if symbol is a stablecoin (6 decimals) but amount
+                # is huge (>10^15), it's likely a BSC pegged token with 18 decimals
+                if decimals == 6 and amount_int > 10**15:
+                    decimals = 18
             else:
-                decimals = TOKEN_DECIMALS_BY_SYMBOL.get(symbol, 18)  # default 18 for unknown ERC20
+                decimals = 18  # default for unknown ERC20
             human_amount = amount_int / (10 ** decimals)
 
             # Accumulate USD value (for stablecoins only)
