@@ -269,22 +269,63 @@ def all_blacklisted() -> list[str]:
 # Snapshot (for Telegram / debugging)
 # --------------------------------------------------------------------------- #
 def snapshot() -> str:
-    """Return a compact human-readable snapshot of the state."""
+    """Return a compact human-readable snapshot of the state.
+    Designed for non-tech users — shows portfolio summary + per-PR status.
+    """
     s = read_state()
     status_emoji = "▶️" if s.get("system_status") == "RUNNING" else "🛑"
     monitors = s.get("active_monitors", {})
     bl = s.get("blacklisted_repos", [])
     ptr = s.get("current_execution_pointer", {})
 
+    # Compute total bounty value at stake
+    total_usd = 0
+    total_other = []
+    for repo, m in monitors.items():
+        bv = str(m.get("bounty_value", ""))
+        if bv.startswith("$"):
+            try:
+                total_usd += int(float(bv.replace("$", "").replace(",", "")))
+            except ValueError:
+                pass
+        elif bv and bv != "NONE":
+            total_other.append(bv)
+
+    total_str = f"${total_usd}"
+    if total_other:
+        total_str += " + " + " + ".join(total_other)
+
     lines = [
         f"{status_emoji} *System:* `{s.get('system_status', 'UNKNOWN')}`",
+        f"💰 *Total at stake:* `{total_str}`",
+        f"👁️ *Active PRs:* {len(monitors)}",
+        f"🚫 *Blacklisted:* {len(bl)} repos",
         f"📍 *Stage:* `{ptr.get('stage', '?')}`",
         f"📝 *Last:* {ptr.get('last_action', '?')[:80]}",
-        f"🎯 *Target:* `{ptr.get('current_target_repo', 'NONE')}`",
-        f"👁️ *Active PRs:* {len(monitors)}",
-        f"🚫 *Blacklisted:* {len(bl)}",
-        f"🕐 *Sync:* `{s.get('last_session_sync', '?')[:19]}`",
     ]
+
+    # Show each active PR with its status
+    if monitors:
+        lines.append("")
+        lines.append("*📋 PR Portfolio:*")
+        for repo, m in monitors.items():
+            status_emoji_pr = {
+                "UNDER_REVIEW": "👀",
+                "NEEDS_REVISION": "🔧",
+                "MERGED": "🎉",
+                "CLOSED_AND_REJECTED": "❌",
+            }.get(m.get("status", ""), "❓")
+            bv = m.get("bounty_value", "?")
+            pr_num = m.get("pr_number", "?")
+            # Shorten repo name for readability
+            short_repo = repo.split("/")[-1] if "/" in repo else repo
+            lines.append(
+                f"  {status_emoji_pr} `{short_repo}` PR #{pr_num} "
+                f"| {bv} | {m.get('status', '?')}"
+            )
+
+    lines.append("")
+    lines.append(f"🕐 *Sync:* `{s.get('last_session_sync', '?')[:19]}`")
     return "\n".join(lines)
 
 

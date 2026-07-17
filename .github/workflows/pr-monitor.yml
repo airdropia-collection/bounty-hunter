@@ -18,7 +18,7 @@ jobs:
           token: ${{ secrets.GH_PAT }}
           fetch-depth: 1
 
-      - name: Check PR statuses + update state.json
+      - name: Check PR statuses + update state.json + hourly heartbeat
         env:
           GH_PAT: ${{ secrets.GH_PAT }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
@@ -53,14 +53,6 @@ jobs:
               state = json.loads(state_path.read_text())
 
           monitors = state.get('active_monitors', {})
-          if not monitors:
-              print('No active monitors — nothing to check')
-              # Still commit a sync timestamp
-              state['last_session_sync'] = datetime.now(timezone.utc).isoformat()
-              state_path.write_text(json.dumps(state, indent=2, default=str))
-              raise SystemExit(0)
-
-          print(f'Tracking {len(monitors)} active PR(s)')
 
           # ── Inline keyboard for control buttons (agent.md §2) ───── #
           reply_markup = {
@@ -100,23 +92,13 @@ jobs:
               )
               return json.loads(urllib.request.urlopen(req, timeout=15).read())
 
-          # ── Map PR state → state.json status (agent.md §5) ──────── #
-          # GitHub PR states: open / closed (with optional merged=true)
-          # state.json statuses: UNDER_REVIEW / NEEDS_REVISION / MERGED / CLOSED_AND_REJECTED
-          #
-          # NEEDS_REVISION is set when:
-          #   - PR is open AND has "changes_requested" review
-          #   - OR maintainer posted a comment requesting changes
-          #
-          # UNDER_REVIEW is the default open state.
-          #
-          # MERGED = GitHub merged=true
-          # CLOSED_AND_REJECTED = GitHub closed without merge
+          print(f'Tracking {len(monitors)} active PR(s)')
 
+          # ── Map PR state → state.json status (agent.md §5) ──────── #
           state_changed = False
           for repo, monitor in list(monitors.items()):
               pr_num = monitor.get('pr_number')
-              if not pr_num:
+              if not pr_num or not str(pr_num).isdigit():
                   continue
               old_status = monitor.get('status', 'UNDER_REVIEW')
 
@@ -139,7 +121,6 @@ jobs:
               elif gh_state == 'closed':
                   new_status = 'CLOSED_AND_REJECTED'
               elif gh_state == 'open':
-                  # Check for changes-requested reviews
                   try:
                       reviews = gh_get(f'https://api.github.com/repos/{repo}/pulls/{pr_num}/reviews?per_page=50')
                       if any(r.get('state') == 'CHANGES_REQUESTED' for r in reviews):
@@ -149,17 +130,15 @@ jobs:
                   except Exception:
                       new_status = 'UNDER_REVIEW'
               else:
-                  new_status = old_status  # unknown — don't change
+                  new_status = old_status
 
               print(f'  GitHub state={gh_state} merged={gh_merged} → state.json={new_status}')
 
-              # Update monitor if status changed
               if new_status != old_status:
                   monitor['status'] = new_status
                   monitor['updated_at'] = datetime.now(timezone.utc).isoformat()
                   state_changed = True
 
-                  # Send appropriate notification
                   if new_status == 'MERGED':
                       tg_send(
                           f'🎉 *PR MERGED!*\n'
@@ -210,6 +189,20 @@ jobs:
               print('\n✅ state.json updated with new PR statuses')
           else:
               print('\nNo status changes detected')
+
+          # ── Hourly heartbeat (always sent — agent.md §6) ─────────── #
+          # Send a portfolio summary every run so the operator always
+          # knows what the bot is doing + total bounty value at stake.
+          print('\n📡 Sending hourly state heartbeat to Telegram...')
+          try:
+              import sys
+              sys.path.insert(0, '.')
+              from src.utils import state_manager
+              heartbeat_text = state_manager.snapshot()
+              tg_send(f'💓 *HOURLY HEARTBEAT*\n━━━━━━━━━━━━━━━━━━\n{heartbeat_text}\n━━━━━━━━━━━━━━━━━━')
+              print('✅ Heartbeat sent')
+          except Exception as e:
+              print(f'⚠️ Heartbeat failed: {e}')
           PYEOF
 
       - name: Commit state.json if changed

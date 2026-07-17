@@ -2,7 +2,19 @@ name: 🎯 Bounty Hunter
 
 on:
   schedule:
-    - cron: '0 */6 * * *'  # Every 6 hours
+    # ──────────────────────────────────────────────────────────────── #
+    # Every 1 hour (changed from 6h per user directive 2026-07-17)
+    #
+    # ⚠️ GitHub Actions free tier = 2000 min/month.
+    #    With hourly runs + ~5 min per run = ~3600 min/month.
+    #    This EXCEEDS free tier — upgrade to Pro or reduce frequency
+    #    if you hit limits. Watch usage at:
+    #    https://github.com/settings/billing
+    #
+    # If PAUSED in state.json, the workflow still triggers but the
+    # '🛑 Check PAUSED state' step exits early (~30 sec, minimal cost).
+    # ──────────────────────────────────────────────────────────────── #
+    - cron: '0 * * * *'  # Every hour at minute 0
   workflow_dispatch:
     inputs:
       platform:
@@ -10,9 +22,9 @@ on:
         default: 'all'
         type: choice
         options:
-          - all              # Both verified platforms (IssueHunt + Bountycaster)
+          - all              # Both verified platforms (IssueHunt + Dework)
           - issuehunt        # https://issuehunt.io (public, no auth)
-          - bountycaster     # https://www.bountycaster.xyz (requires NEYNAR_API_KEY or BOUNTYCASTER_AUTH_COOKIE)
+          - dework           # https://dework.xyz (Web3 DAO bounties; needs DEWORK_AUTH_TOKEN for task data)
       dry_run:
         description: 'Dry run (no submissions, just analysis)'
         default: true
@@ -28,7 +40,7 @@ concurrency:
 jobs:
   hunt:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 15  # Reduced from 30 to control costs (hourly runs)
     permissions:
       contents: read
       issues: write
@@ -46,9 +58,6 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
-          pip install patchright
-          python -m patchright install --with-deps chromium
-          python -m playwright install --with-deps chromium
 
       # ──────────────────────────────────────────────────────────── #
       # MASTER BRAKE (agent.md §2)
@@ -97,8 +106,7 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           # Verified-platform credentials (optional — scrapers degrade gracefully)
-          BOUNTYCASTER_AUTH_COOKIE: ${{ secrets.BOUNTYCASTER_AUTH_COOKIE }}
-          NEYNAR_API_KEY: ${{ secrets.NEYNAR_API_KEY }}
+          DEWORK_AUTH_TOKEN: ${{ secrets.DEWORK_AUTH_TOKEN }}
           DRY_RUN: ${{ github.event.inputs.dry_run || 'true' }}
           MAX_BOUNTIES_PER_RUN: ${{ github.event.inputs.max_bounties || '5' }}
         run: |
@@ -118,4 +126,4 @@ jobs:
             evidence/
             reports/
           if-no-files-found: ignore
-          retention-days: 14
+          retention-days: 7  # Reduced from 14 to save storage (hourly runs)

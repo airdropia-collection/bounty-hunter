@@ -1,11 +1,11 @@
 {
   "system_status": "RUNNING",
-  "last_session_sync": "2026-07-17T04:53:29.321945+00:00",
+  "last_session_sync": "2026-07-17T05:12:57.016959+00:00",
   "current_execution_pointer": {
-    "stage": "PR_SUBMITTED",
-    "last_action": "Submitted PR #128 to marcosgriselli/SwipeableTabBarController (resolves issue #52)",
-    "current_target_repo": "marcosgriselli/SwipeableTabBarController",
-    "updated_at": "2026-07-17T04:03:19.481630+00:00"
+    "stage": "PLATFORM_MIGRATION",
+    "last_action": "Bountycaster removed; Dework added; hourly hunt cycle enabled",
+    "current_target_repo": "NONE",
+    "updated_at": "2026-07-17T05:12:57.016969+00:00"
   },
   "active_monitors": {
     "jwallet/spy-spotify": {
@@ -22,7 +22,7 @@
     },
     "mergeos-bounties/Loru": {
       "pr_number": 252,
-      "status": "UNDER_REVIEW",
+      "status": "NEEDS_REVISION",
       "bounty_value": "50 MRG",
       "platform": "MergeOS",
       "revision_reason": "Gate 1 (badges) blocked by maintainer @TUPM96 \u2014 missing org follow + 2 core repo stars",
@@ -32,8 +32,7 @@
         "Star https://github.com/mergeos-bounties/mergeos",
         "Star https://github.com/mergeos-bounties/mergeos-contracts"
       ],
-      "blocked_at": "2026-07-17T02:30:55Z",
-      "updated_at": "2026-07-17T04:53:28.126433+00:00"
+      "blocked_at": "2026-07-17T02:30:55Z"
     },
     "marcosgriselli/SwipeableTabBarController": {
       "pr_number": 128,
@@ -42,16 +41,21 @@
       "platform": "IssueHunt",
       "pr_url": "https://github.com/marcosgriselli/SwipeableTabBarController/pull/128",
       "pr_title": "fix: prevent freeze on very fast swipes (#52)",
-      "submitted_at": "2026-07-17T04:01:34.794932+00:00",
-      "issue_url": "https://github.com/marcosgriselli/SwipeableTabBarController/issues/52",
       "issue_number": 52,
-      "fixed_at": "2026-07-17T04:03:19.481563+00:00"
+      "submitted_at": "2026-07-17T04:01:34.794932+00:00"
     }
   },
   "blacklisted_repos": [
     "xevrion-v2/agent-playground",
     "ThanhTrucSolutions/OriLang",
     "iii123iii/Crystal-PDF"
+  ],
+  "platform_history": [
+    {
+      "date": "2026-07-17",
+      "action": "removed_bountycaster_added_dework",
+      "details": "Bountycaster required Privy/Farcaster web3 auth (useless for autonomous execution). Replaced with Dework (Web3 DAO task manager, public GraphQL API for org/workspace metadata, DEWORK_AUTH_TOKEN for task data)."
+    }
   ],
   "tg_callback_offset": 537736856
 }

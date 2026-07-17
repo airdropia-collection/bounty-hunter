@@ -23,8 +23,8 @@ from src.analyzers.contract_downloader import ContractDownloader
 from src.analyzers.vuln_detector import VulnerabilityDetector
 from src.config import CONFIG
 from src.scrapers.base import Bounty
-from src.scrapers.bountycaster import BountycasterScraper
 from src.scrapers.code4rena import Code4renaScraper
+from src.scrapers.dework import DeworkScraper
 from src.scrapers.immunefi import ImmunefiScraper
 from src.scrapers.issuehunt import IssueHuntScraper
 from src.scrapers.sherlock import SherlockScraper
@@ -43,11 +43,13 @@ log = get_logger("pipeline")
 # appear via one of these platforms.
 #
 # ⚠️ Algora was REMOVED on 2026-07-17 (platform pivoted to recruiting).
-#    Do NOT re-add Algora unless it relaunches a public bounty board.
+# ⚠️ Bountycaster was REMOVED on 2026-07-17 (required Privy/Farcaster auth).
+# ✅ Dework was ADDED on 2026-07-17 (Web3 DAO bounties, public API for
+#    org/workspace metadata, DEWORK_AUTH_TOKEN for task data).
 # ──────────────────────────────────────────────────────────────────── #
 VERIFIED_SCRAPER_MAP = {
     "issuehunt": IssueHuntScraper,
-    "bountycaster": BountycasterScraper,
+    "dework": DeworkScraper,
 }
 
 # Legacy platforms (Immunefi / Code4rena / Sherlock) — kept for manual
