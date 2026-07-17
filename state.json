@@ -42,9 +42,10 @@
     }
   },
   "blacklisted_repos": [
-    "xevrion-v2/agent-playground",
     "ThanhTrucSolutions/OriLang",
-    "iii123iii/Crystal-PDF"
+    "iii123iii/Crystal-PDF",
+    "xevrion-v2/agent-playground",
+    "zardoy/space-squid"
   ],
   "platform_history": [
     {
