@@ -1,9 +1,9 @@
 {
   "system_status": "RUNNING",
-  "last_session_sync": "2026-07-18T06:20:59.463892+00:00",
+  "last_session_sync": "2026-07-18T06:22:38.047949+00:00",
   "current_execution_pointer": {
     "stage": "PR_SUBMITTED",
-    "last_action": "Submitted PR #276 to mergeos-bounties/PlantGuide",
+    "last_action": "Submitted PR #277 to mergeos-bounties/PlantGuide",
     "current_target_repo": "mergeos-bounties/PlantGuide"
   },
   "active_monitors": {
@@ -45,13 +45,13 @@
       "submitted_at": "2026-07-17T04:01:34.794932+00:00"
     },
     "mergeos-bounties/PlantGuide": {
-      "pr_number": 276,
+      "pr_number": 277,
       "status": "UNDER_REVIEW",
       "bounty_value": "",
       "platform": "manual",
-      "pr_url": "https://github.com/mergeos-bounties/PlantGuide/pull/276",
-      "pr_title": "[25 MRG] Species pack: Polka Dot Begonia (Begonia maculata) \u2014 photo + care card",
-      "submitted_at": "2026-07-18T06:20:59.463880+00:00"
+      "pr_url": "https://github.com/mergeos-bounties/PlantGuide/pull/277",
+      "pr_title": "[25 MRG] Species pack: Swiss Cheese Vine (Monstera adansonii) \u2014 photo + care card",
+      "submitted_at": "2026-07-18T06:22:38.047938+00:00"
     },
     "mergeos-bounties/PlantGuide#77": {
       "pr_number": 274,
