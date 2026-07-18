@@ -30,7 +30,9 @@
       "gate_status": "Gate 1 \u2705 \u2014 waiting for Gate 2 (security) review",
       "merged_at": "2026-07-17T15:27:21Z",
       "merged_by": "TUPM96",
-      "merge_commit_sha": "ec4e08f"
+      "merge_commit_sha": "ec4e08f",
+      "actual_reward": "25 MRG (future-small)",
+      "fork_deleted_at": "2026-07-18T06:03:45.766259+00:00"
     },
     "marcosgriselli/SwipeableTabBarController": {
       "pr_number": 128,
@@ -44,12 +46,40 @@
     },
     "mergeos-bounties/PlantGuide": {
       "pr_number": 274,
-      "status": "UNDER_REVIEW",
+      "status": "MERGED",
       "bounty_value": "",
       "platform": "manual",
       "pr_url": "https://github.com/mergeos-bounties/PlantGuide/pull/274",
       "pr_title": "[25 MRG] Species pack: Spearmint (Mentha spicata) \u2014 photo + care card",
-      "submitted_at": "2026-07-18T06:01:47.726586+00:00"
+      "submitted_at": "2026-07-18T06:01:47.726586+00:00",
+      "merged_at": "2026-07-17T19:22:51Z",
+      "actual_reward": "25 MRG (future-small)"
+    },
+    "mergeos-bounties/PlantGuide#77": {
+      "pr_number": 274,
+      "status": "UNDER_REVIEW",
+      "bounty_value": "25 MRG",
+      "platform": "MergeOS",
+      "issue_number": 77,
+      "pr_url": "https://github.com/mergeos-bounties/PlantGuide/pull/274",
+      "pr_title": "[25 MRG] Species pack: Spearmint (Mentha spicata) \u2014 photo + care card",
+      "fork_branch": "feat/species-spearmint-77",
+      "submitted_at": "2026-07-18T06:03:45.766245+00:00",
+      "gate_1_completed_at": "2026-07-17T07:20:40Z",
+      "gate_status": "Gate 1 \u2705 (org-wide) \u2014 waiting for Gate 2 (security) review"
+    },
+    "mergeos-bounties/PlantGuide#74": {
+      "pr_number": 275,
+      "status": "UNDER_REVIEW",
+      "bounty_value": "25 MRG",
+      "platform": "MergeOS",
+      "issue_number": 74,
+      "pr_url": "https://github.com/mergeos-bounties/PlantGuide/pull/275",
+      "pr_title": "[25 MRG] Species pack: Raven ZZ (Zamioculcas zamiifolia Raven) \u2014 photo + care card",
+      "fork_branch": "feat/species-raven-zz-74",
+      "submitted_at": "2026-07-18T06:03:45.766256+00:00",
+      "gate_1_completed_at": "2026-07-17T07:20:40Z",
+      "gate_status": "Gate 1 \u2705 (org-wide) \u2014 waiting for Gate 2 (security) review"
     }
   },
   "blacklisted_repos": [
