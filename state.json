@@ -90,7 +90,7 @@
     },
     "mergeos-bounties/PlantGuide#71": {
       "pr_number": 276,
-      "status": "UNDER_REVIEW",
+      "status": "MERGED",
       "bounty_value": "25 MRG",
       "platform": "MergeOS",
       "issue_number": 71,
@@ -99,7 +99,10 @@
       "fork_branch": "feat/species-begonia-71",
       "submitted_at": "2026-07-18T06:26:01.553404+00:00",
       "gate_1_completed_at": "2026-07-17T07:20:40Z",
-      "gate_status": "Gate 1 \u2705 (org-wide) \u2014 waiting for Gate 2 (security) review"
+      "gate_status": "MERGED",
+      "merged_at": "2026-07-18T06:25:30Z",
+      "merged_by": "TUPM96",
+      "actual_reward": "25 MRG (future-small)"
     },
     "mergeos-bounties/PlantGuide#66": {
       "pr_number": 278,
