@@ -44,15 +44,6 @@
       "issue_number": 52,
       "submitted_at": "2026-07-17T04:01:34.794932+00:00"
     },
-    "mergeos-bounties/PlantGuide": {
-      "pr_number": 278,
-      "status": "UNDER_REVIEW",
-      "bounty_value": "",
-      "platform": "manual",
-      "pr_url": "https://github.com/mergeos-bounties/PlantGuide/pull/278",
-      "pr_title": "[25 MRG] Species pack: Caladium / Heart of Jesus (Caladium bicolor) \u2014 photo + care card",
-      "submitted_at": "2026-07-18T06:24:26.225821+00:00"
-    },
     "mergeos-bounties/PlantGuide#77": {
       "pr_number": 274,
       "status": "UNDER_REVIEW",
@@ -76,6 +67,50 @@
       "pr_title": "[25 MRG] Species pack: Raven ZZ (Zamioculcas zamiifolia Raven) \u2014 photo + care card",
       "fork_branch": "feat/species-raven-zz-74",
       "submitted_at": "2026-07-18T06:03:45.766256+00:00",
+      "gate_1_completed_at": "2026-07-17T07:20:40Z",
+      "gate_status": "Gate 1 \u2705 (org-wide) \u2014 waiting for Gate 2 (security) review"
+    },
+    "mergeos-bounties/PlantGuide#69": {
+      "pr_number": 277,
+      "status": "MERGED",
+      "bounty_value": "25 MRG",
+      "platform": "MergeOS",
+      "issue_number": 69,
+      "pr_url": "https://github.com/mergeos-bounties/PlantGuide/pull/277",
+      "pr_title": "[25 MRG] Species pack: Swiss Cheese Vine (Monstera adansonii)",
+      "fork_branch": "feat/species-monstera-adansonii-69",
+      "submitted_at": "2026-07-18T06:23:00Z",
+      "merged_at": "2026-07-18T06:24:29Z",
+      "merged_by": "TUPM96",
+      "actual_reward": "25 MRG (future-small)",
+      "ledger_sequence": "1000",
+      "entry_hash": "d22feac80c41fee840620f8a9ddb76055a0b913b0dbe28f957700a95adf54fe4",
+      "gate_1_completed_at": "2026-07-17T07:20:40Z",
+      "gate_status": "MERGED \u2014 ledger seq #1000"
+    },
+    "mergeos-bounties/PlantGuide#71": {
+      "pr_number": 276,
+      "status": "UNDER_REVIEW",
+      "bounty_value": "25 MRG",
+      "platform": "MergeOS",
+      "issue_number": 71,
+      "pr_url": "https://github.com/mergeos-bounties/PlantGuide/pull/276",
+      "pr_title": "[25 MRG] Species pack: Polka Dot Begonia (Begonia maculata)",
+      "fork_branch": "feat/species-begonia-71",
+      "submitted_at": "2026-07-18T06:26:01.553404+00:00",
+      "gate_1_completed_at": "2026-07-17T07:20:40Z",
+      "gate_status": "Gate 1 \u2705 (org-wide) \u2014 waiting for Gate 2 (security) review"
+    },
+    "mergeos-bounties/PlantGuide#66": {
+      "pr_number": 278,
+      "status": "UNDER_REVIEW",
+      "bounty_value": "25 MRG",
+      "platform": "MergeOS",
+      "issue_number": 66,
+      "pr_url": "https://github.com/mergeos-bounties/PlantGuide/pull/278",
+      "pr_title": "[25 MRG] Species pack: Caladium / Heart of Jesus (Caladium bicolor)",
+      "fork_branch": "feat/species-caladium-66",
+      "submitted_at": "2026-07-18T06:26:01.553415+00:00",
       "gate_1_completed_at": "2026-07-17T07:20:40Z",
       "gate_status": "Gate 1 \u2705 (org-wide) \u2014 waiting for Gate 2 (security) review"
     }
