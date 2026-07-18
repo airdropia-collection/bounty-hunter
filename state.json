@@ -1,9 +1,9 @@
 {
   "system_status": "RUNNING",
-  "last_session_sync": "2026-07-18T04:19:36.489893+00:00",
+  "last_session_sync": "2026-07-18T06:01:47.726599+00:00",
   "current_execution_pointer": {
     "stage": "PR_SUBMITTED",
-    "last_action": "Submitted PR #273 to mergeos-bounties/PlantGuide",
+    "last_action": "Submitted PR #274 to mergeos-bounties/PlantGuide",
     "current_target_repo": "mergeos-bounties/PlantGuide"
   },
   "active_monitors": {
@@ -43,17 +43,13 @@
       "submitted_at": "2026-07-17T04:01:34.794932+00:00"
     },
     "mergeos-bounties/PlantGuide": {
-      "pr_number": 273,
-      "status": "MERGED",
+      "pr_number": 274,
+      "status": "UNDER_REVIEW",
       "bounty_value": "",
       "platform": "manual",
-      "pr_url": "https://github.com/mergeos-bounties/PlantGuide/pull/273",
-      "pr_title": "[25 MRG] Species pack: Rosemary (Salvia rosmarinus) \u2014 photo + care card",
-      "submitted_at": "2026-07-17T17:51:10.447891+00:00",
-      "updated_at": "2026-07-17T19:38:04.558590+00:00",
-      "merged_at": "2026-07-17T19:22:51Z",
-      "merged_by": "TUPM96",
-      "actual_reward": "25 MRG (future-small)"
+      "pr_url": "https://github.com/mergeos-bounties/PlantGuide/pull/274",
+      "pr_title": "[25 MRG] Species pack: Spearmint (Mentha spicata) \u2014 photo + care card",
+      "submitted_at": "2026-07-18T06:01:47.726586+00:00"
     }
   },
   "blacklisted_repos": [
