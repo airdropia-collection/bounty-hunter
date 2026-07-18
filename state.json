@@ -102,7 +102,9 @@
       "gate_status": "MERGED",
       "merged_at": "2026-07-18T06:25:30Z",
       "merged_by": "TUPM96",
-      "actual_reward": "25 MRG (future-small)"
+      "actual_reward": "25 MRG (future-small)",
+      "ledger_sequence": "1001",
+      "entry_hash": "e7ed6f3a8ef4005aa05af4e2076c9fe55976cb7224737f51e2b728917e843448"
     },
     "mergeos-bounties/PlantGuide#66": {
       "pr_number": 278,
@@ -116,6 +118,21 @@
       "submitted_at": "2026-07-18T06:26:01.553415+00:00",
       "gate_1_completed_at": "2026-07-17T07:20:40Z",
       "gate_status": "Gate 1 \u2705 (org-wide) \u2014 waiting for Gate 2 (security) review"
+    },
+    "mergeos-bounties/PlantGuide#78": {
+      "pr_number": 273,
+      "status": "MERGED",
+      "bounty_value": "25 MRG",
+      "platform": "MergeOS",
+      "issue_number": 78,
+      "pr_url": "https://github.com/mergeos-bounties/PlantGuide/pull/273",
+      "pr_title": "[25 MRG] Species pack: Rosemary (Salvia rosmarinus)",
+      "fork_branch": "feat/species-rosemary-78",
+      "submitted_at": "2026-07-17T17:51:09Z",
+      "merged_at": "2026-07-17T19:22:51Z",
+      "merged_by": "TUPM96",
+      "actual_reward": "25 MRG (future-small)",
+      "gate_status": "MERGED"
     }
   },
   "blacklisted_repos": [
