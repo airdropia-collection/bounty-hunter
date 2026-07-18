@@ -183,7 +183,7 @@
   "tg_callback_offset": 537736856,
   "remote_cached_inventory": {
     "description": "Branches verified locally + pushed to origin (airdropia-collection fork). Held from upstream PR submission due to anti-spam gate (max 2 open PRs per repo). All branches pass pytest + ruff.",
-    "last_updated": "2026-07-18T15:07:27.309073+00:00",
+    "last_updated": "2026-07-18T15:11:14.154161+00:00",
     "nerajob": {
       "repo": "airdropia-collection/NeraJob",
       "branches": [
@@ -254,6 +254,31 @@
     "release_priority": [
       "PlantGuide: feat/species-boston-fern-54 (next after #278 or #289 merges)",
       "NeraJob: feat/scraper-greenhouse-11 (next after #97 or #99 merges)"
-    ]
+    ],
+    "anti_spam_gate_status": {
+      "plantguide": {
+        "repo": "mergeos-bounties/PlantGuide",
+        "open_prs": 2,
+        "threshold": 2,
+        "status": "AT_THRESHOLD \u2014 4 branches held on origin",
+        "open_pr_numbers": [
+          278,
+          289
+        ],
+        "next_release_trigger": "PR #278 or #289 merges \u2192 push feat/species-boston-fern-54"
+      },
+      "nerajob": {
+        "repo": "mergeos-bounties/NeraJob",
+        "open_prs": 2,
+        "threshold": 2,
+        "status": "AT_THRESHOLD \u2014 3 branches held on origin",
+        "open_pr_numbers": [
+          97,
+          99
+        ],
+        "ci_note": "PRs #97 + #99 show action_required \u2014 maintainer must approve first-time contributor CI",
+        "next_release_trigger": "PR #97 or #99 merges \u2192 push feat/scraper-greenhouse-11"
+      }
+    }
   }
 }
