@@ -1,10 +1,10 @@
 {
   "system_status": "RUNNING",
-  "last_session_sync": "2026-07-18T11:44:22.774359+00:00",
+  "last_session_sync": "2026-07-18T12:17:23.451574+00:00",
   "current_execution_pointer": {
     "stage": "PR_SUBMITTED",
-    "last_action": "Submitted PR #289 to mergeos-bounties/PlantGuide",
-    "current_target_repo": "mergeos-bounties/PlantGuide"
+    "last_action": "Submitted PR #97 to mergeos-bounties/NeraJob",
+    "current_target_repo": "mergeos-bounties/NeraJob"
   },
   "active_monitors": {
     "jwallet/spy-spotify": {
@@ -155,6 +155,15 @@
       "pr_url": "https://github.com/mergeos-bounties/PlantGuide/pull/289",
       "pr_title": "[25 MRG] Species pack: Alocasia Polly - photo + care card",
       "submitted_at": "2026-07-18T08:39:47.671871+00:00"
+    },
+    "mergeos-bounties/NeraJob": {
+      "pr_number": 97,
+      "status": "UNDER_REVIEW",
+      "bounty_value": "",
+      "platform": "manual",
+      "pr_url": "https://github.com/mergeos-bounties/NeraJob/pull/97",
+      "pr_title": "[25 MRG] Docs: ethical scraping + rate limit policy",
+      "submitted_at": "2026-07-18T12:17:23.451560+00:00"
     }
   },
   "blacklisted_repos": [
