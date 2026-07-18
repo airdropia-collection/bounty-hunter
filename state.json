@@ -1,9 +1,9 @@
 {
   "system_status": "RUNNING",
-  "last_session_sync": "2026-07-18T08:16:04.333922+00:00",
+  "last_session_sync": "2026-07-18T08:39:47.671884+00:00",
   "current_execution_pointer": {
     "stage": "PR_SUBMITTED",
-    "last_action": "Submitted PR #278 to mergeos-bounties/PlantGuide",
+    "last_action": "Submitted PR #289 to mergeos-bounties/PlantGuide",
     "current_target_repo": "mergeos-bounties/PlantGuide"
   },
   "active_monitors": {
@@ -146,6 +146,15 @@
       "actual_reward": "25 MRG (future-small)",
       "gate_status": "MERGED",
       "ledger_sequence": "958"
+    },
+    "mergeos-bounties/PlantGuide": {
+      "pr_number": 289,
+      "status": "UNDER_REVIEW",
+      "bounty_value": "",
+      "platform": "manual",
+      "pr_url": "https://github.com/mergeos-bounties/PlantGuide/pull/289",
+      "pr_title": "[25 MRG] Species pack: Alocasia Polly - photo + care card",
+      "submitted_at": "2026-07-18T08:39:47.671871+00:00"
     }
   },
   "blacklisted_repos": [
