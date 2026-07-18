@@ -1,9 +1,9 @@
 {
   "system_status": "RUNNING",
-  "last_session_sync": "2026-07-18T14:15:04.689233+00:00",
+  "last_session_sync": "2026-07-18T14:32:21.964430+00:00",
   "current_execution_pointer": {
     "stage": "PR_SUBMITTED",
-    "last_action": "Submitted PR #97 to mergeos-bounties/NeraJob",
+    "last_action": "Submitted PR #99 to mergeos-bounties/NeraJob",
     "current_target_repo": "mergeos-bounties/NeraJob"
   },
   "active_monitors": {
@@ -157,13 +157,13 @@
       "submitted_at": "2026-07-18T08:39:47.671871+00:00"
     },
     "mergeos-bounties/NeraJob": {
-      "pr_number": 97,
+      "pr_number": 99,
       "status": "UNDER_REVIEW",
       "bounty_value": "",
       "platform": "manual",
-      "pr_url": "https://github.com/mergeos-bounties/NeraJob/pull/97",
-      "pr_title": "[25 MRG] Docs: ethical scraping + rate limit policy",
-      "submitted_at": "2026-07-18T12:17:23.451560+00:00"
+      "pr_url": "https://github.com/mergeos-bounties/NeraJob/pull/99",
+      "pr_title": "[25 MRG] Scraper: Findwork.dev API adapter",
+      "submitted_at": "2026-07-18T14:32:21.964419+00:00"
     }
   },
   "blacklisted_repos": [
