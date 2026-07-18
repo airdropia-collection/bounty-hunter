@@ -27,12 +27,14 @@
       "gate_blocked": null,
       "updated_at": "2026-07-17T15:52:36.403516+00:00",
       "gate_1_completed_at": "2026-07-17T07:20:40Z",
-      "gate_status": "Gate 1 \u2705 \u2014 waiting for Gate 2 (security) review",
+      "gate_status": "MERGED \u2014 ledger #957",
       "merged_at": "2026-07-17T15:27:21Z",
       "merged_by": "TUPM96",
       "merge_commit_sha": "ec4e08f",
       "actual_reward": "25 MRG (future-small)",
-      "fork_deleted_at": "2026-07-18T06:03:45.766259+00:00"
+      "fork_deleted_at": "2026-07-18T06:03:45.766259+00:00",
+      "ledger_sequence": "957",
+      "entry_hash": "26e9614724b1d0915b7d0c4327534bb6e44d13263b"
     },
     "marcosgriselli/SwipeableTabBarController": {
       "pr_number": 128,
@@ -46,7 +48,7 @@
     },
     "mergeos-bounties/PlantGuide#77": {
       "pr_number": 274,
-      "status": "UNDER_REVIEW",
+      "status": "MERGED",
       "bounty_value": "25 MRG",
       "platform": "MergeOS",
       "issue_number": 77,
@@ -55,11 +57,16 @@
       "fork_branch": "feat/species-spearmint-77",
       "submitted_at": "2026-07-18T06:03:45.766245+00:00",
       "gate_1_completed_at": "2026-07-17T07:20:40Z",
-      "gate_status": "Gate 1 \u2705 (org-wide) \u2014 waiting for Gate 2 (security) review"
+      "gate_status": "MERGED \u2014 ledger #1003",
+      "merged_at": "2026-07-18T06:27:13Z",
+      "merged_by": "TUPM96",
+      "actual_reward": "25 MRG (future-small)",
+      "ledger_sequence": "1003",
+      "entry_hash": "0437586d6e26e896ef7eaf24f5c1de8171a0e88426bbdfb1395e9bd2f0421d81"
     },
     "mergeos-bounties/PlantGuide#74": {
       "pr_number": 275,
-      "status": "UNDER_REVIEW",
+      "status": "MERGED",
       "bounty_value": "25 MRG",
       "platform": "MergeOS",
       "issue_number": 74,
@@ -68,7 +75,12 @@
       "fork_branch": "feat/species-raven-zz-74",
       "submitted_at": "2026-07-18T06:03:45.766256+00:00",
       "gate_1_completed_at": "2026-07-17T07:20:40Z",
-      "gate_status": "Gate 1 \u2705 (org-wide) \u2014 waiting for Gate 2 (security) review"
+      "gate_status": "MERGED \u2014 ledger #1002",
+      "merged_at": "2026-07-18T06:26:20Z",
+      "merged_by": "TUPM96",
+      "actual_reward": "25 MRG (future-small)",
+      "ledger_sequence": "1002",
+      "entry_hash": "1117536afc1fe22dbc67b1614407b53687f4ec793b41c73542e01d36df0e2869"
     },
     "mergeos-bounties/PlantGuide#69": {
       "pr_number": 277,
@@ -132,7 +144,8 @@
       "merged_at": "2026-07-17T19:22:51Z",
       "merged_by": "TUPM96",
       "actual_reward": "25 MRG (future-small)",
-      "gate_status": "MERGED"
+      "gate_status": "MERGED",
+      "ledger_sequence": "958"
     }
   },
   "blacklisted_repos": [
