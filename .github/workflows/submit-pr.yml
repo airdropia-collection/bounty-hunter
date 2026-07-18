@@ -137,7 +137,22 @@ jobs:
             echo "No state changes — skipping commit"
           else
             git commit -m "🤖 bot: register PR #${PR_NUMBER} on ${UPSTREAM_REPO} in state.json"
-            git push
+            # ─── Race condition mitigation (added 2026-07-18, Phase 1.2) ───
+            # If another submit-pr.yml run committed state.json between our
+            # checkout and now, our push will be rejected with "fetch first".
+            # Retry up to 3 times with git pull --rebase before each push.
+            for attempt in 1 2 3; do
+              if git push origin main 2>&1; then
+                echo "✅ Push succeeded on attempt $attempt"
+                break
+              else
+                echo "⚠️ Push rejected (attempt $attempt) — likely concurrent submit-pr.yml run"
+                echo "   Pulling latest with --rebase and retrying..."
+                git pull --rebase origin main
+                # Re-stage our commit on top of the rebase
+                # (git already moved our commit; no re-add needed)
+              fi
+            done
           fi
 
       - name: 📱 Notify Telegram — PR Submitted (with control buttons)
