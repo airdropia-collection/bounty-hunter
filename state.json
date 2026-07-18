@@ -50,7 +50,10 @@
       "pr_url": "https://github.com/mergeos-bounties/PlantGuide/pull/273",
       "pr_title": "[25 MRG] Species pack: Rosemary (Salvia rosmarinus) \u2014 photo + care card",
       "submitted_at": "2026-07-17T17:51:10.447891+00:00",
-      "updated_at": "2026-07-17T19:38:04.558590+00:00"
+      "updated_at": "2026-07-17T19:38:04.558590+00:00",
+      "merged_at": "2026-07-17T19:22:51Z",
+      "merged_by": "TUPM96",
+      "actual_reward": "25 MRG (future-small)"
     }
   },
   "blacklisted_repos": [
