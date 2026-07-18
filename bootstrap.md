@@ -56,16 +56,36 @@ OPEN_COUNT=$(curl -sS -H "Authorization: token $GH_PAT" \
 
 **Maximum 2 open PRs per upstream repository.** If at threshold, hold staged branches on origin. Do NOT push to upstream until a slot opens.
 
+### Step 5: Pre-Flight Reconnaissance Protocol (MANDATORY — added 2026-07-18, Cycle 5)
+
+Before targeting ANY new bounty platform or issue, the agent MUST execute the Pre-Flight Reconnaissance Protocol defined in `agent.md §0`. This protocol requires:
+
+1. **Mainnet Deployment Verification** — Check the platform's token contract repository for deployed mainnet addresses. Reject platforms with `status: "not_deployed"`.
+2. **Historical Withdrawal Evidence** — Inspect 10+ merged PRs from other contributors for verifiable on-chain transaction hashes or fiat payment confirmations.
+3. **External Escrow Confirmation** — Query Polar.sh, Gitcoin, or Bountycaster APIs to confirm locked funds in verifiable smart contracts.
+4. **Withdrawal/Redemption Path Verification** — Search the platform's codebase for `withdraw`, `redeem`, `payout` code paths. Reject platforms where no withdrawal mechanism exists.
+5. **Reward Label vs. Actual Payout Audit** — Compare advertised rewards against actual payouts in merged PR comments. Reject platforms with systematic inflation.
+
+**Decision matrix:** All 5 checks pass → REAL-ASSET-VERIFIED. Any fail → VIRTUAL-CREDIT-FLAGGED (do NOT target). Inconclusive → UNVERIFIED (hold for operator).
+
+**Retroactive status (as of 2026-07-18):**
+- IssueHunt: PASS (real USD via Stripe Connect)
+- Dework: INCONCLUSIVE (escrow verification pending)
+- MergeOS: FAIL (Solana program not deployed, no withdrawal mechanism)
+
+See `agent.md §0` for full protocol details and `docs/post_mortem_cycle_4.md` for the negligence report that triggered this protocol.
+
 ---
 
 ## ROLE & TASK
 
-Role: Full Executive Operator for Bounty Hunter Bot.
+Role: Strategic Gatekeeper for Bounty Hunter Bot.
 Task: Resume operations based on state.json and agent.md.
 
 1. CRITICAL: Read `state.json` immediately to identify current_execution_pointer.
-2. CRITICAL: Check `agent.md` for PAT usage rules and operations matrix.
-3. STATUS: Do not request setup. Identify the last incomplete stage and execute the next logical step.
-4. ACTION: If `system_status` is RUNNING, proceed with the hourly hunt cycle or monitor pending PRs.
+2. CRITICAL: Check `agent.md §0` for Pre-Flight Reconnaissance Protocol — MUST be completed before targeting any new platform.
+3. CRITICAL: Check `agent.md` for PAT usage rules and operations matrix.
+4. STATUS: Do not request setup. Identify the last incomplete stage and execute the next logical step.
+5. ACTION: If `system_status` is RUNNING, proceed with the hourly hunt cycle or monitor pending PRs. Do NOT target any platform that has not passed the Pre-Flight Reconnaissance Protocol.
 
 Command: "I have initialized. I am reading state.json and agent.md now. I am ready to resume."

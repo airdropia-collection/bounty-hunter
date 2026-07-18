@@ -2,9 +2,10 @@
   "system_status": "RUNNING",
   "last_session_sync": "2026-07-18T15:27:12.898971+00:00",
   "current_execution_pointer": {
-    "stage": "PR_SUBMITTED",
-    "last_action": "Submitted PR #99 to mergeos-bounties/NeraJob",
-    "current_target_repo": "mergeos-bounties/NeraJob"
+    "stage": "ARCHITECTURE_OVERHAUL_COMPLETE",
+    "last_action": "Implemented strict real-asset payout verification gate & post-mortem (Cycle 5)",
+    "current_target_repo": "NONE \u2014 MergeOS blocked, IssueHunt is primary target",
+    "updated_at": "2026-07-18T15:54:09.797354+00:00"
   },
   "active_monitors": {
     "jwallet/spy-spotify": {
@@ -279,6 +280,75 @@
         "ci_note": "PRs #97 + #99 show action_required \u2014 maintainer must approve first-time contributor CI",
         "next_release_trigger": "PR #97 or #99 merges \u2192 push feat/scraper-greenhouse-11"
       }
+    }
+  },
+  "platform_verification": {
+    "description": "Pre-Flight Reconnaissance Protocol results (agent.md \u00a70). Platforms must pass all 5 checks before targeting.",
+    "last_updated": "2026-07-18T15:54:09.797329+00:00",
+    "verification_protocol_version": "1.0",
+    "platforms": {
+      "issuehunt": {
+        "status": "REAL_ASSET_VERIFIED",
+        "asset_type": "usd_stripe",
+        "checks": {
+          "mainnet_deployment": "N/A \u2014 fiat platform, no token",
+          "historical_withdrawal": "PASS \u2014 IssueHunt pays via Stripe Connect to bank accounts",
+          "external_escrow": "PASS \u2014 IssueHunt holds USD escrow internally, backed by Stripe",
+          "withdrawal_path": "PASS \u2014 contributors withdraw via Stripe Connect dashboard",
+          "reward_label_audit": "PASS \u2014 advertised amounts match actual payouts"
+        },
+        "targetable": true,
+        "verified_at": "2026-07-18T00:00:00Z"
+      },
+      "dework": {
+        "status": "UNVERIFIED",
+        "asset_type": "unknown",
+        "checks": {
+          "mainnet_deployment": "INCONCLUSIVE \u2014 Dework uses org-native tokens, verification pending",
+          "historical_withdrawal": "INCONCLUSIVE \u2014 not yet inspected",
+          "external_escrow": "INCONCLUSIVE \u2014 not yet queried",
+          "withdrawal_path": "INCONCLUSIVE \u2014 not yet verified",
+          "reward_label_audit": "INCONCLUSIVE \u2014 not yet performed"
+        },
+        "targetable": false,
+        "verified_at": null,
+        "notes": "Claims crypto payouts (USDC/ETH/org tokens) but deep escrow verification not yet performed. Held pending operator review."
+      },
+      "mergeos": {
+        "status": "VIRTUAL_CREDIT_FLAGGED",
+        "asset_type": "internal_mrg",
+        "checks": {
+          "mainnet_deployment": "FAIL \u2014 Solana program status: not_deployed (deployments/addresses.json confirms null mainnet-beta)",
+          "historical_withdrawal": "FAIL \u2014 ledger sequences are private database entries, no on-chain tx hashes found in 30+ merged PR comments",
+          "external_escrow": "FAIL \u2014 escrow is internal Go backend database table, not smart contract or third-party custody",
+          "withdrawal_path": "FAIL \u2014 zero withdrawal/redeem/fiat code paths found in codebase search",
+          "reward_label_audit": "FAIL \u2014 issue titles advertise [1000 MRG] but actual payouts are 50 MRG; policy doc states 'marketing budget, not automatic payout amount'"
+        },
+        "targetable": false,
+        "verified_at": "2026-07-18T00:00:00Z",
+        "evidence": {
+          "addresses_json": "deployments/addresses.json shows mainnet-beta.status = 'not_deployed'",
+          "code_search": "0 results for withdraw/redeem/fiat/stripe/stripewalletpayout keywords in mergeos-bounties/mergeos",
+          "payout_comments": "Maintainer comments use code 'future-small' \u2014 'future' indicates deferred/not-yet-real",
+          "internal_rate": "100 MRG = $1.00 display rate, but no conversion mechanism exists",
+          "post_mortem": "docs/post_mortem_cycle_4.md"
+        },
+        "notes": "MergeOS is a real software product with active development, but MRG tokens are internal credits with zero withdrawable value. 150 MRG earned across 6 merged PRs = $0.00 withdrawable. Branches cached on origin are preserved in case MRG deploys to mainnet in the future."
+      }
+    },
+    "targeting_strategy": {
+      "policy": "ONLY target platforms with status REAL_ASSET_VERIFIED. Virtual-credit platforms are blocked. Unverified platforms are held.",
+      "primary_target": "issuehunt",
+      "secondary_targets": [],
+      "blocked": [
+        "mergeos"
+      ],
+      "held": [
+        "dework"
+      ],
+      "real_usd_earned_lifetime": 0,
+      "virtual_credits_earned": "150 MRG (MergeOS \u2014 not withdrawable)",
+      "kpi_redefinition": "Primary KPI is now 'Real USD or Certified Crypto Earned and Withdrawn', not token counts or ledger sequences."
     }
   }
 }
