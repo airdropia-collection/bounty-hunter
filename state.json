@@ -180,5 +180,80 @@
       "details": "Bountycaster required Privy/Farcaster web3 auth (useless for autonomous execution). Replaced with Dework (Web3 DAO task manager, public GraphQL API for org/workspace metadata, DEWORK_AUTH_TOKEN for task data)."
     }
   ],
-  "tg_callback_offset": 537736856
+  "tg_callback_offset": 537736856,
+  "remote_cached_inventory": {
+    "description": "Branches verified locally + pushed to origin (airdropia-collection fork). Held from upstream PR submission due to anti-spam gate (max 2 open PRs per repo). All branches pass pytest + ruff.",
+    "last_updated": "2026-07-18T15:07:27.309073+00:00",
+    "nerajob": {
+      "repo": "airdropia-collection/NeraJob",
+      "branches": [
+        {
+          "name": "feat/scraper-greenhouse-11",
+          "commit": "c571996",
+          "issue": 11,
+          "reward": "50 MRG",
+          "tests": 22,
+          "status": "staged \u2014 waiting for NeraJob slot"
+        },
+        {
+          "name": "feat/scraper-himalayas-5",
+          "commit": "e218a54",
+          "issue": 5,
+          "reward": "25 MRG",
+          "tests": 19,
+          "status": "staged \u2014 waiting for NeraJob slot"
+        },
+        {
+          "name": "feat/scraper-usajobs-8",
+          "commit": "7c17f98",
+          "issue": 8,
+          "reward": "50 MRG",
+          "tests": 21,
+          "status": "staged \u2014 waiting for NeraJob slot"
+        }
+      ]
+    },
+    "plantguide": {
+      "repo": "airdropia-collection/PlantGuide",
+      "branches": [
+        {
+          "name": "feat/species-boston-fern-54",
+          "commit": "58e7ec8",
+          "issue": 54,
+          "reward": "25 MRG",
+          "tests": 41,
+          "status": "staged \u2014 waiting for PlantGuide slot"
+        },
+        {
+          "name": "feat/species-wandering-jew-50",
+          "commit": "2c35f9b",
+          "issue": 50,
+          "reward": "25 MRG",
+          "tests": 41,
+          "status": "staged \u2014 waiting for PlantGuide slot"
+        },
+        {
+          "name": "feat/species-hoya-kerrii-46",
+          "commit": "71285ce",
+          "issue": 46,
+          "reward": "25 MRG",
+          "tests": 41,
+          "status": "staged \u2014 waiting for PlantGuide slot"
+        },
+        {
+          "name": "feat/species-hoya-carnosa-45",
+          "commit": "3f9547f",
+          "issue": 45,
+          "reward": "25 MRG",
+          "tests": 41,
+          "status": "staged \u2014 waiting for PlantGuide slot"
+        }
+      ]
+    },
+    "total_staged_value_mrg": 225,
+    "release_priority": [
+      "PlantGuide: feat/species-boston-fern-54 (next after #278 or #289 merges)",
+      "NeraJob: feat/scraper-greenhouse-11 (next after #97 or #99 merges)"
+    ]
+  }
 }
