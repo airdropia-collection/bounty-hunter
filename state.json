@@ -69,32 +69,34 @@
       "real_asset_verified": true
     },
     "WillisWilliam8/client_golang#1": {
-      "pr_number": null,
-      "status": "STAGED",
+      "pr_number": 4,
+      "status": "PR_SUBMITTED",
       "bounty_value": "$10 USD (Opire/Stripe)",
       "platform": "Opire",
       "issue_number": 1,
       "fork_branch": "fix/ttl-eviction-histogramvec-1",
       "fork_repo": "airdropia-collection/client_golang",
       "language": "go",
-      "submitted_at": "2026-07-19T14:27:21.399841+00:00",
+      "pr_url": "https://github.com/WillisWilliam8/client_golang/pull/4",
+      "pr_title": "[BOUNTY $10] TTL-based eviction for MetricVec",
+      "submitted_at": "2026-07-19T14:29:41.381918+00:00",
       "asset_type": "usd_stripe",
-      "real_asset_verified": true,
-      "solution_summary": "TTLMetricVec: thread-safe TTL eviction for high-cardinality metrics (10 tests)"
+      "real_asset_verified": true
     },
     "maitebloger111/Apache-Arrow#1": {
-      "pr_number": null,
-      "status": "STAGED",
+      "pr_number": 5,
+      "status": "PR_SUBMITTED",
       "bounty_value": "$10 USD (Opire/Stripe)",
       "platform": "Opire",
       "issue_number": 1,
       "fork_branch": "fix/partition-pruning-1",
       "fork_repo": "airdropia-collection/Apache-Arrow",
       "language": "go",
-      "submitted_at": "2026-07-19T14:27:21.399857+00:00",
+      "pr_url": "https://github.com/maitebloger111/Apache-Arrow/pull/5",
+      "pr_title": "[BOUNTY $10] Bloom filter partition pruner",
+      "submitted_at": "2026-07-19T14:29:41.381933+00:00",
       "asset_type": "usd_stripe",
-      "real_asset_verified": true,
-      "solution_summary": "Bloom filter partition pruner for large datasets (7 tests)"
+      "real_asset_verified": true
     },
     "WillisWilliam8/client_golang": {
       "pr_number": 4,
