@@ -34,11 +34,12 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from src.utils.capability_matrix import IssueAssessment, assess_issue
 from src.utils.logger import get_logger
+from src.utils.memory_registry import append_learned_pattern
 from src.utils.polyglot_runner import run_lint, run_tests
 
 log = get_logger("batch_executor")
@@ -48,13 +49,13 @@ log = get_logger("batch_executor")
 # Enums
 # ──────────────────────────────────────────────────────────────────── #
 
-class GateStatus(str, Enum):  # noqa: PLC0414
+class GateStatus(StrEnum):  # noqa: PLC0414
     PASS = "PASS"
     FAIL = "FAIL"
     SKIP = "SKIP"
 
 
-class LoopState(str, Enum):  # noqa: PLC0414
+class LoopState(StrEnum):  # noqa: PLC0414
     SUCCESS = "SUCCESS"
     FAILED = "FAILED"
     AUTONOMOUS_HEALED = "AUTONOMOUS_HEALED"
@@ -94,6 +95,7 @@ class BatchResult:
     diagnostic_exception: str | None
     core_resolution_log: str
     capability_assessment: IssueAssessment | None = None
+    memory_sync_status: str = "SKIPPED - NO HEALING REQUIRED"
 
     def format_record(self) -> str:
         """Format as structured batch record for GitHub Actions auditing."""
@@ -106,6 +108,7 @@ class BatchResult:
             f"- CYCLES_CONSUMED: {self.cycles_consumed}",
             f"- DIAGNOSTIC_EXCEPTION: {self.diagnostic_exception or 'None'}",
             f"- CORE_RESOLUTION_LOG: {self.core_resolution_log}",
+            f"- MEMORY_REGISTRY_SYNC: {self.memory_sync_status}",
             "[TARGET_BATCH_RECORD_END]",
         ]
         return "\n".join(lines)
@@ -324,6 +327,9 @@ class BatchExecutor:
         4. If fail → diagnose error, log fix strategy, retry
         5. After max cycles → FAILED (fail-forward)
         """
+        # Track the last diagnosis from a failing cycle (for memory persistence on heal)
+        last_diagnosis: dict[str, Any] | None = None
+
         for cycle in range(self.max_heal_cycles + 1):
             log.info(
                 "[%s] Healing cycle %d/%d",
@@ -338,6 +344,29 @@ class BatchExecutor:
             if test_result.passed and lint_result.passed:
                 # Success!
                 state = LoopState.SUCCESS if cycle == 0 else LoopState.AUTONOMOUS_HEALED
+                memory_status = "SKIPPED - NO HEALING REQUIRED"
+
+                # ── Phase 1: Automated memory persistence ──
+                # If this was a healing success (cycle > 0), persist the
+                # diagnostic pattern + fix strategy to agent_memory.json
+                if cycle > 0 and last_diagnosis:
+                    memory_result = append_learned_pattern(
+                        category=last_diagnosis["category"],
+                        title=f"{last_diagnosis['category']} resolved in {target.identifier}",
+                        description=f"Error: {last_diagnosis.get('raw_match', 'unknown')}. Fix: {last_diagnosis['fix']}. Target: {target.identifier}, language: {language}.",
+                        fix=last_diagnosis["fix"],
+                        tags=[language, last_diagnosis["category"], "auto-healed"],
+                    )
+                    memory_status = memory_result["status"]
+                    if memory_result["status"] == "SUCCESS":
+                        log.info(
+                            "[%s] Memory registry updated: pattern '%s' (category: %s)",
+                            target.identifier, memory_result.get("pattern_id", ""),
+                            last_diagnosis["category"],
+                        )
+                    elif memory_result["status"] == "WRITE_ERROR":
+                        log.warning("[%s] Memory registry write failed", target.identifier)
+
                 return BatchResult(
                     identifier=target.identifier,
                     financial_valuation=target.financial_value,
@@ -348,11 +377,13 @@ class BatchExecutor:
                     diagnostic_exception=None,
                     core_resolution_log=f"Tests passed ({test_result.pass_count or 'all'}). Lint clean. Language: {language}.",
                     capability_assessment=assessment,
+                    memory_sync_status=memory_status,
                 )
 
             # Diagnose the failure
             error_text = test_result.stderr + "\n" + lint_result.stderr
             diagnosis = diagnose_error(test_result.stderr, test_result.stdout)
+            last_diagnosis = diagnosis  # store for memory persistence on next-cycle heal
 
             if diagnosis:
                 log.info(

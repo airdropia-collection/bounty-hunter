@@ -1,0 +1,186 @@
+name: 🎯 Batch Hunt (Polyglot)
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'  # Every 6 hours
+  workflow_dispatch:
+    inputs:
+      max_targets:
+        description: 'Max targets to process per batch'
+        default: '10'
+      dry_run:
+        description: 'Dry run (no PR submissions)'
+        default: 'true'
+
+concurrency:
+  group: batch-hunt-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  batch-hunt:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GH_PAT }}
+          fetch-depth: 1
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Install shellcheck
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
+
+      - name: 🛑 Check PAUSED state
+        id: brake
+        run: |
+          if [ ! -f state.json ]; then
+            echo "skip=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          STATUS=$(python3 -c "import json; print(json.load(open('state.json')).get('system_status','RUNNING').upper())")
+          echo "system_status = $STATUS"
+          if [ "$STATUS" = "PAUSED" ]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: 🔍 Run Batch Hunt Pipeline
+        if: steps.brake.outputs.skip != 'true'
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          MAX_TARGETS: ${{ github.event.inputs.max_targets || '10' }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'true' }}
+        run: |
+          python3 - <<'PYEOF'
+          import json
+          import os
+          import sys
+          from pathlib import Path
+
+          from src.utils.batch_executor import BatchExecutor, BatchTarget
+          from src.utils.logger import get_logger, silence_noisy_libs
+          from src.utils.telegram import get_notifier
+
+          silence_noisy_libs()
+          log = get_logger("batch_hunt")
+
+          max_targets = int(os.environ.get("MAX_TARGETS", "10"))
+          dry_run = os.environ.get("DRY_RUN", "true").lower() == "true"
+
+          log.info("=== Batch Hunt Pipeline starting ===")
+          log.info("max_targets=%d dry_run=%s", max_targets, dry_run)
+
+          # ── Discover targets from verified platforms ──
+          # Currently scrapes IssueHunt (verified real-asset) for open bounties
+          targets: list[BatchTarget] = []
+
+          try:
+              from src.scrapers.issuehunt import IssueHuntScraper
+              scraper = IssueHuntScraper()
+              bounties = scraper.scrape()
+              log.info("IssueHunt: found %d bounties", len(bounties))
+
+              for b in bounties[:max_targets]:
+                  targets.append(BatchTarget(
+                      identifier=b.id,
+                      issue_title=b.project_name,
+                      issue_body=b.description,
+                      issue_url=b.url,
+                      financial_valuation=f"${b.max_payout_usd}",
+                      project_dir=".",
+                  ))
+          except Exception as exc:
+              log.error("IssueHunt scrape failed: %s", exc)
+
+          if not targets:
+              log.info("No targets discovered — exiting batch")
+              print("[BATCH_HUNT_SUMMARY]")
+              print(f"- TARGETS_DISCOVERED: 0")
+              print(f"- TARGETS_PROCESSED: 0")
+              print(f"- TARGETS_SUCCEEDED: 0")
+              print(f"- TARGETS_FAILED: 0")
+              print(f"- TARGETS_SKIPPED: 0")
+              print("[BATCH_HUNT_SUMMARY_END]")
+              sys.exit(0)
+
+          # ── Execute batch with self-healing ──
+          executor = BatchExecutor(max_heal_cycles=3, test_timeout=60, lint_timeout=30)
+          results = executor.execute_batch(targets)
+
+          # ── Summary ──
+          succeeded = sum(1 for r in results if r.loop_state.value in ("SUCCESS", "AUTONOMOUS_HEALED"))
+          failed = sum(1 for r in results if r.loop_state.value == "FAILED")
+          skipped = sum(1 for r in results if r.loop_state.value == "SKIPPED")
+          healed = sum(1 for r in results if r.loop_state.value == "AUTONOMOUS_HEALED")
+
+          print("\n[BATCH_HUNT_SUMMARY]")
+          print(f"- TARGETS_DISCOVERED: {len(targets)}")
+          print(f"- TARGETS_PROCESSED: {len(results)}")
+          print(f"- TARGETS_SUCCEEDED: {succeeded}")
+          print(f"- TARGETS_FAILED: {failed}")
+          print(f"- TARGETS_SKIPPED: {skipped}")
+          print(f"- AUTONOMOUSLY_HEALED: {healed}")
+          print("[BATCH_HUNT_SUMMARY_END]")
+
+          # ── Telegram HUD update ──
+          try:
+              tg = get_notifier()
+              if tg.is_configured:
+                  tg.send(
+                      f"🎯 *Batch Hunt Complete*\n"
+                      f"━━━━━━━━━━━━━━━━━━\n"
+                      f"🔍 Targets: {len(targets)}\n"
+                      f"✅ Succeeded: {succeeded}\n"
+                      f"🔧 Healed: {healed}\n"
+                      f"❌ Failed: {failed}\n"
+                      f"⏭️ Skipped: {skipped}\n"
+                      f"━━━━━━━━━━━━━━━━━━",
+                      with_controls=True,
+                  )
+          except Exception as exc:
+              log.error("Telegram notification failed: %s", exc)
+
+          log.info("=== Batch Hunt Pipeline complete ===")
+          PYEOF
+
+      - name: 📸 Upload Artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: batch-hunt-${{ github.run_id }}
+          path: |
+            docs/agent_memory.json
+            state.json
+          if-no-files-found: ignore
+          retention-days: 7
