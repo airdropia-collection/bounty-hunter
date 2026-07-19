@@ -98,6 +98,7 @@ def test_assess_rust_complex_not_cleared():
         "Build a neural network inference runtime using tokio",
     )
     assert result.detected_language == "rust"
+    # Rust base=0.95 (upgraded), ML=-0.3 → 0.65, below 80% threshold → NOT cleared
     assert result.final_confidence < 0.80
     assert result.cleared is False
 
@@ -107,8 +108,8 @@ def test_assess_go_bug_fix_cleared():
         "Fix goroutine leak in the HTTP middleware",
     )
     assert result.detected_language == "go"
-    # Go base=0.80, complexity "bug fix" = -0.1 → 0.70, NOT cleared
-    assert result.cleared is False
+    # Go base=0.95 (upgraded), complexity "bug fix" = -0.1 → 0.85, CLEARED at 80% threshold
+    assert result.cleared is True
 
 def test_assess_go_simple_cleared():
     result = assess_issue(
@@ -161,5 +162,6 @@ def test_assess_custom_threshold():
         "Implement neural network with tokio async runtime",
         confidence_threshold=0.50,  # lower threshold
     )
-    assert result.final_confidence < 0.50  # 0.78-0.3=0.48
-    assert result.cleared is False  # 0.48 < 0.50 threshold
+    # Rust base=0.95 (upgraded), ML complexity=-0.3 → 0.65, threshold 0.50 → CLEARED
+    assert result.final_confidence >= 0.50  # 0.95-0.3=0.65
+    assert result.cleared is True  # 0.65 >= 0.50 threshold
