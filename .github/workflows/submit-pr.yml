@@ -64,23 +64,31 @@ jobs:
       - name: Create PR via GitHub API
         env:
           GH_PAT: ${{ secrets.GH_PAT }}
+          PR_TITLE: ${{ github.event.inputs.pr_title }}
+          PR_BODY: ${{ github.event.inputs.pr_body }}
+          FORK_BRANCH: ${{ github.event.inputs.fork_branch }}
+          UPSTREAM_BRANCH: ${{ github.event.inputs.upstream_branch }}
+          UPSTREAM_REPO: ${{ github.event.inputs.upstream_repo }}
         run: |
+          # Use jq to safely construct JSON (handles $, newlines, quotes in title/body)
+          PAYLOAD=$(jq -n \
+            --arg title "$PR_TITLE" \
+            --arg head "airdropia-collection:$FORK_BRANCH" \
+            --arg base "$UPSTREAM_BRANCH" \
+            --arg body "$PR_BODY" \
+            '{title: $title, head: $head, base: $base, body: $body}')
+          echo "Constructed PR payload ($(echo "$PAYLOAD" | wc -c) bytes)"
           RESPONSE=$(curl -sS -X POST \
             -H "Authorization: Bearer $GH_PAT" \
             -H "Accept: application/vnd.github+json" \
-            -d "{
-              \"title\": \"${{ github.event.inputs.pr_title }}\",
-              \"head\": \"airdropia-collection:${{ github.event.inputs.fork_branch }}\",
-              \"base\": \"${{ github.event.inputs.upstream_branch }}\",
-              \"body\": \"${{ github.event.inputs.pr_body }}\"
-            }" \
-            "https://api.github.com/repos/${{ github.event.inputs.upstream_repo }}/pulls")
+            -d "$PAYLOAD" \
+            "https://api.github.com/repos/$UPSTREAM_REPO/pulls")
           echo "$RESPONSE"
           PR_URL=$(echo "$RESPONSE" | python3 -c "import json,sys;print(json.load(sys.stdin).get('html_url','FAILED'))" 2>/dev/null)
           PR_NUMBER=$(echo "$RESPONSE" | python3 -c "import json,sys;print(json.load(sys.stdin).get('number',''))" 2>/dev/null)
           echo "PR_URL=$PR_URL" >> $GITHUB_ENV
           echo "PR_NUMBER=$PR_NUMBER" >> $GITHUB_ENV
-          echo "UPSTREAM_REPO=${{ github.event.inputs.upstream_repo }}" >> $GITHUB_ENV
+          echo "UPSTREAM_REPO=$UPSTREAM_REPO" >> $GITHUB_ENV
           if [ "$PR_URL" = "FAILED" ] || [ -z "$PR_URL" ]; then
             echo "PR creation failed!"
             exit 1
