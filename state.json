@@ -1,6 +1,6 @@
 {
   "system_status": "RUNNING",
-  "last_session_sync": "2026-07-19T04:07:44.615874+00:00",
+  "last_session_sync": "2026-07-19T05:01:38.909646+00:00",
   "current_execution_pointer": {
     "stage": "REAL_ASSET_PR_SUBMITTED",
     "last_action": "Submitted 3 PRs to claude-builders-bounty ($300 USD total, Opire/Stripe escrow)",
@@ -150,21 +150,23 @@
     },
     "mergeos-bounties/PlantGuide": {
       "pr_number": 289,
-      "status": "UNDER_REVIEW",
+      "status": "MERGED",
       "bounty_value": "",
       "platform": "manual",
       "pr_url": "https://github.com/mergeos-bounties/PlantGuide/pull/289",
       "pr_title": "[25 MRG] Species pack: Alocasia Polly - photo + care card",
-      "submitted_at": "2026-07-18T08:39:47.671871+00:00"
+      "submitted_at": "2026-07-18T08:39:47.671871+00:00",
+      "updated_at": "2026-07-19T05:01:35.715825+00:00"
     },
     "mergeos-bounties/NeraJob": {
       "pr_number": 99,
-      "status": "UNDER_REVIEW",
+      "status": "MERGED",
       "bounty_value": "",
       "platform": "manual",
       "pr_url": "https://github.com/mergeos-bounties/NeraJob/pull/99",
       "pr_title": "[25 MRG] Scraper: Findwork.dev API adapter",
-      "submitted_at": "2026-07-18T14:32:21.964419+00:00"
+      "submitted_at": "2026-07-18T14:32:21.964419+00:00",
+      "updated_at": "2026-07-19T05:01:36.688645+00:00"
     },
     "claude-builders-bounty/claude-builders-bounty": {
       "pr_number": 3500,
