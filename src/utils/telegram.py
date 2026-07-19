@@ -664,47 +664,56 @@ class TelegramNotifier:
         try:
             from src.utils import state_manager
 
-            # Gather live metrics from state
+            # Gather live metrics from state — ONLY active, real-asset entries
             state = state_manager.read_state()
             monitors = state.get("active_monitors", {})
 
-            pending_usd = 0
+            pending_usd = 0.0
             pending_prs = 0
-            merged_usd = 0
+            merged_usd = 0.0
             merged_count = 0
             active_platforms_set: set[str] = set()
 
+            # Rejected platforms — virtual credits, never counted in USD totals
+            VIRTUAL_CREDIT_PLATFORMS = {"mergeos", "internal_mrg"}
+
             for repo, monitor in monitors.items():
                 status = str(monitor.get("status", "")).upper()
-                bounty_val = str(monitor.get("bounty_value", "")).upper()
+                bounty_val = str(monitor.get("bounty_value", ""))
+                platform = str(monitor.get("platform", "")).lower()
 
-                # Extract USD amount from bounty_value if present
-                usd_amount = 0
-                if "$" in bounty_val and "USD" in bounty_val:
-                    try:
-                        # Parse "$100 USD" → 100
-                        usd_amount = int(bounty_val.replace("$", "").replace("USD", "").strip())
-                    except ValueError:
-                        pass
+                # Skip virtual-credit platforms entirely (never count in USD)
+                is_virtual = any(vc in platform or vc in repo.lower() for vc in VIRTUAL_CREDIT_PLATFORMS)
 
-                if status == "MERGED":
+                # Extract real USD amount from bounty_value
+                # Matches: "$100", "$50 USD", "$150 USD (real Stripe escrow via Opire)"
+                usd_amount = 0.0
+                if "$" in bounty_val and not is_virtual:
+                    import re
+                    usd_match = re.search(r'\$(\d+(?:\.\d+)?)', bounty_val)
+                    if usd_match:
+                        usd_amount = float(usd_match.group(1))
+
+                if status == "MERGED" and not is_virtual:
                     merged_count += 1
                     merged_usd += usd_amount
-                elif status in ("UNDER_REVIEW", "PR_SUBMITTED"):
+                elif status in ("UNDER_REVIEW", "PR_SUBMITTED") and not is_virtual:
                     pending_prs += 1
                     pending_usd += usd_amount
 
-                platform = monitor.get("platform", "")
-                if platform:
-                    active_platforms_set.add(platform)
+                if platform and not is_virtual:
+                    # Clean up platform name for display
+                    display_platform = platform.split("(")[0].strip()
+                    if display_platform:
+                        active_platforms_set.add(display_platform)
 
             pipeline_status = "PAUSED" if state.get("system_status", "").upper() == "PAUSED" else "RUNNING"
             last_action = state.get("current_execution_pointer", {}).get("last_action", "")
 
             self.update_master_hud(
-                pending_usd=pending_usd,
+                pending_usd=int(pending_usd),
                 pending_prs=pending_prs,
-                merged_usd=merged_usd,
+                merged_usd=int(merged_usd),
                 merged_count=merged_count,
                 active_platforms=", ".join(sorted(active_platforms_set)) if active_platforms_set else "none",
                 pipeline_status=pipeline_status,
