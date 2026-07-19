@@ -2,9 +2,10 @@
   "system_status": "RUNNING",
   "last_session_sync": "2026-07-19T04:07:44.615874+00:00",
   "current_execution_pointer": {
-    "stage": "PR_SUBMITTED",
-    "last_action": "Submitted PR #3500 to claude-builders-bounty/claude-builders-bounty",
-    "current_target_repo": "claude-builders-bounty/claude-builders-bounty"
+    "stage": "REAL_ASSET_PR_SUBMITTED",
+    "last_action": "Submitted 3 PRs to claude-builders-bounty ($300 USD total, Opire/Stripe escrow)",
+    "current_target_repo": "claude-builders-bounty/claude-builders-bounty",
+    "updated_at": "2026-07-19T04:08:50.441412+00:00"
   },
   "active_monitors": {
     "jwallet/spy-spotify": {
@@ -173,6 +174,45 @@
       "pr_url": "https://github.com/claude-builders-bounty/claude-builders-bounty/pull/3500",
       "pr_title": "[BOUNTY $150] PR review sub-agent: LLM-powered diff analysis with static fallback",
       "submitted_at": "2026-07-19T04:07:44.615861+00:00"
+    },
+    "claude-builders-bounty/claude-builders-bounty#3": {
+      "pr_number": 3498,
+      "status": "PR_SUBMITTED",
+      "bounty_value": "$100 USD (real Stripe escrow via Opire)",
+      "platform": "Opire (claude-builders-bounty)",
+      "issue_number": 3,
+      "pr_url": "https://github.com/claude-builders-bounty/claude-builders-bounty/pull/3498",
+      "pr_title": "[BOUNTY $100] Pre-tool-use security hook",
+      "fork_branch": "bounty/issue-3-security-hook",
+      "submitted_at": "2026-07-19T04:08:50.441374+00:00",
+      "asset_type": "usd_stripe",
+      "real_asset_verified": true
+    },
+    "claude-builders-bounty/claude-builders-bounty#1": {
+      "pr_number": 3499,
+      "status": "PR_SUBMITTED",
+      "bounty_value": "$50 USD (real Stripe escrow via Opire)",
+      "platform": "Opire (claude-builders-bounty)",
+      "issue_number": 1,
+      "pr_url": "https://github.com/claude-builders-bounty/claude-builders-bounty/pull/3499",
+      "pr_title": "[BOUNTY $50] CHANGELOG generator",
+      "fork_branch": "bounty/issue-1-changelog-gen",
+      "submitted_at": "2026-07-19T04:08:50.441398+00:00",
+      "asset_type": "usd_stripe",
+      "real_asset_verified": true
+    },
+    "claude-builders-bounty/claude-builders-bounty#4": {
+      "pr_number": 3500,
+      "status": "PR_SUBMITTED",
+      "bounty_value": "$150 USD (real Stripe escrow via Opire)",
+      "platform": "Opire (claude-builders-bounty)",
+      "issue_number": 4,
+      "pr_url": "https://github.com/claude-builders-bounty/claude-builders-bounty/pull/3500",
+      "pr_title": "[BOUNTY $150] PR review sub-agent",
+      "fork_branch": "bounty/issue-4-pr-review-agent",
+      "submitted_at": "2026-07-19T04:08:50.441404+00:00",
+      "asset_type": "usd_stripe",
+      "real_asset_verified": true
     }
   },
   "blacklisted_repos": [
@@ -342,6 +382,13 @@
           "post_mortem": "docs/post_mortem_cycle_4.md"
         },
         "notes": "MergeOS is a real software product with active development, but MRG tokens are internal credits with zero withdrawable value. 150 MRG earned across 6 merged PRs = $0.00 withdrawable. Branches cached on origin are preserved in case MRG deploys to mainnet in the future."
+      },
+      "opire": {
+        "status": "REAL_ASSET_VERIFIED",
+        "asset_type": "usd_stripe",
+        "targetable": true,
+        "verified_at": "2026-07-19T04:08:50.441416+00:00",
+        "evidence": "Payment handled by Opire via Stripe. PRs #3498, #3499, #3500 submitted."
       }
     },
     "targeting_strategy": {
@@ -356,7 +403,8 @@
       ],
       "real_usd_earned_lifetime": 0,
       "virtual_credits_earned": "150 MRG (MergeOS \u2014 not withdrawable)",
-      "kpi_redefinition": "Primary KPI is now 'Real USD or Certified Crypto Earned and Withdrawn', not token counts or ledger sequences."
+      "kpi_redefinition": "Primary KPI is now 'Real USD or Certified Crypto Earned and Withdrawn', not token counts or ledger sequences.",
+      "real_usd_pending": 300
     }
   }
 }
