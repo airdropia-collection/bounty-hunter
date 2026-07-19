@@ -2,11 +2,9 @@
 from __future__ import annotations
 
 from src.utils.capability_matrix import (
-    CAPABILITIES,
-    LanguageCapability,
-    detect_language,
     assess_complexity,
     assess_issue,
+    detect_language,
 )
 
 

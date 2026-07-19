@@ -26,9 +26,7 @@ from __future__ import annotations
 
 import re
 import subprocess
-from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Any
+from dataclasses import dataclass
 
 from src.utils.logger import get_logger
 
@@ -282,8 +280,8 @@ def run_lint(
         error_count = 0
         if result.returncode != 0:
             # Count lines that look like errors
-            error_lines = [l for l in (result.stdout + result.stderr).split("\n")
-                          if l.strip() and ("error" in l.lower() or "warning" in l.lower())]
+            error_lines = [line for line in (result.stdout + result.stderr).split("\n")
+                          if line.strip() and ("error" in line.lower() or "warning" in line.lower())]
             error_count = len(error_lines)
 
         return LintResult(
