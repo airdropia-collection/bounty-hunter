@@ -67,6 +67,14 @@ jobs:
           echo "system_status = $STATUS"
           if [ "$STATUS" = "PAUSED" ]; then
             echo "skip=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          # Check operational_mode — if INTERACTIVE, skip background execution
+          OP_MODE=$(python3 -c "import json; print(json.load(open('state.json')).get('operational_mode','BACKGROUND'))")
+          echo "operational_mode = $OP_MODE"
+          if [ "$OP_MODE" = "INTERACTIVE" ]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "SKIPPED — operational_mode is INTERACTIVE (background execution disabled)"
           else
             echo "skip=false" >> $GITHUB_OUTPUT
           fi

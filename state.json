@@ -2,10 +2,10 @@
   "system_status": "RUNNING",
   "last_session_sync": "2026-07-19T12:10:47.863639+00:00",
   "current_execution_pointer": {
-    "stage": "REAL_ASSET_PR_SUBMITTED",
-    "last_action": "Submitted 3 PRs to claude-builders-bounty ($300 USD total, Opire/Stripe escrow)",
-    "current_target_repo": "claude-builders-bounty/claude-builders-bounty",
-    "updated_at": "2026-07-19T04:08:50.441412+00:00"
+    "stage": "INTERACTIVE_MODE_ACTIVE",
+    "last_action": "Pivoted to interactive orchestration \u2014 background crons skip when INTERACTIVE",
+    "current_target_repo": "NONE \u2014 awaiting operator sign-off",
+    "updated_at": "2026-07-19T12:53:03.740534+00:00"
   },
   "active_monitors": {
     "jwallet/spy-spotify": {
@@ -267,5 +267,10 @@
     "total_archived": 10,
     "last_purge_at": "2026-07-19T07:45:18.941231+00:00",
     "purge_reason": "Cycle 8: Hard cold-storage data isolation \u2014 removed all MergeOS virtual credits, MERGED entries, and workflow artifacts from active tracking."
-  }
+  },
+  "operational_mode": "INTERACTIVE",
+  "banned_platforms": [
+    "dework"
+  ],
+  "github_status_gate": true
 }
