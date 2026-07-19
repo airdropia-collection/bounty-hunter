@@ -21,7 +21,6 @@ from pathlib import Path
 from typing import Any
 
 from src.analyzers.contract_downloader import ContractDownloader
-from src.analyzers.vuln_detector import VulnerabilityDetector
 from src.scrapers.base import Bounty
 from src.scrapers.code4rena import Code4renaScraper
 from src.scrapers.dework import DeworkScraper
@@ -348,43 +347,9 @@ def analyze_bounty(bounty: Bounty) -> dict[str, Any]:
         bounty.project_name, len(source_code), detected_language or "auto-detect",
     )
 
-    # 2. AI vulnerability detection + verification (merged — single AI call)
-    # Multi-language: detector uses language-aware prompts (Solidity, JS, Python, etc.)
-    detector = VulnerabilityDetector()
-    findings = detector.analyze(source_code, bounty.project_name, language=detected_language)
-    result["findings"] = [f.to_dict() for f in findings]
-
-    if not findings:
-        log.info("[%s] no vulnerabilities found by AI", bounty.project_name)
-        return result
-
-    # Only VERIFIED findings are shown to user (INCONCLUSIVE logged but not shown)
-    # Added 2026-07-17: also filter out VERIFIED findings with confidence_adjusted
-    # below MIN_SUBMITTABLE_CONFIDENCE. The doubt-reviewer sometimes marks a
-    # finding as VERIFIED but with confidence 0.00 (meaning it couldn't actually
-    # substantiate the claim). These are noise — recent bot issues #24-#28 all
-    # had confidence 0.00 and were rejected on doubt-driven review.
-    MIN_SUBMITTABLE_CONFIDENCE = 0.30
-    verified_all = [f for f in findings if f.verdict == "VERIFIED"]
-    low_confidence_verified = [f for f in verified_all if f.confidence_adjusted < MIN_SUBMITTABLE_CONFIDENCE]
-    verified_findings = [f for f in verified_all if f.confidence_adjusted >= MIN_SUBMITTABLE_CONFIDENCE]
-
-    if low_confidence_verified:
-        log.info(
-            "[%s] %d VERIFIED finding(s) dropped (confidence < %.2f, likely false positive)",
-            bounty.project_name, len(low_confidence_verified), MIN_SUBMITTABLE_CONFIDENCE,
-        )
-
-    result["reviewed_findings"] = [f.to_dict() for f in findings]
-    result["submittable_count"] = len(verified_findings)
-
-    verified_count = len(verified_findings)
-    inconclusive_count = sum(1 for f in findings if f.verdict == "INCONCLUSIVE")
-    log.info(
-        "[%s] %d findings -> %d VERIFIED, %d INCONCLUSIVE -> %d for user review",
-        bounty.project_name, len(findings), verified_count, inconclusive_count, verified_count,
-    )
-
+    # AI vulnerability detection has been removed (0% ROI, token-burning).
+    # Direct solution construction is now the primary path.
+    # See: solutions/ directory + batch_executor.py + capability_matrix.py
     return result
 
 

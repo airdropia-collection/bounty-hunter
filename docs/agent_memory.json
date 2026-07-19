@@ -2,7 +2,7 @@
   "description": "Persistent context registry for the agent swarm. Stores learned patterns, optimization vectors, and self-healing fixes discovered during operation. All sub-agents read from this file before starting work and write to it after completing tasks.",
   "version": "1.0.0",
   "created_at": "2026-07-19T00:00:00Z",
-  "last_updated": "2026-07-19T08:00:00Z",
+  "last_updated": "2026-07-19T12:12:07.697539+00:00",
   "learned_patterns": [
     {
       "id": "pattern-001",
@@ -11,7 +11,13 @@
       "description": "When passing PR titles containing $ (e.g., [BOUNTY $100]) or bodies with newlines via bash curl -d, GitHub API returns HTTP 400 'Problems parsing JSON'. Fix: use jq -n with --arg for safe JSON construction.",
       "discovered_at": "2026-07-18T04:04:00Z",
       "applied_count": 3,
-      "tags": ["bash", "json", "curl", "github-api", "submit-pr"]
+      "tags": [
+        "bash",
+        "json",
+        "curl",
+        "github-api",
+        "submit-pr"
+      ]
     },
     {
       "id": "pattern-002",
@@ -20,7 +26,12 @@
       "description": "When using substring matching for query filtering, 'rust' matches 'terraform' because 'rust' is a substring of 'terraform'. Fix: use test queries that don't collide with fixture content, or use word-boundary regex matching.",
       "discovered_at": "2026-07-18T12:23:00Z",
       "applied_count": 1,
-      "tags": ["python", "testing", "substring", "filter"]
+      "tags": [
+        "python",
+        "testing",
+        "substring",
+        "filter"
+      ]
     },
     {
       "id": "pattern-003",
@@ -29,7 +40,12 @@
       "description": "Directory names with hyphens (e.g., 'issue-3-hook') cannot be imported as Python modules. Fix: use underscores (issue_3_hook) and add __init__.py files.",
       "discovered_at": "2026-07-18T16:46:00Z",
       "applied_count": 4,
-      "tags": ["python", "modules", "imports", "packaging"]
+      "tags": [
+        "python",
+        "modules",
+        "imports",
+        "packaging"
+      ]
     },
     {
       "id": "pattern-004",
@@ -38,7 +54,12 @@
       "description": "Using 'l' as a variable name in list comprehensions triggers ruff E741. Fix: rename to 'line' or 'item'.",
       "discovered_at": "2026-07-18T16:46:00Z",
       "applied_count": 5,
-      "tags": ["python", "ruff", "linting", "naming"]
+      "tags": [
+        "python",
+        "ruff",
+        "linting",
+        "naming"
+      ]
     },
     {
       "id": "pattern-005",
@@ -47,7 +68,12 @@
       "description": "Platforms with un-deployed Solana programs, 'future-small' payout codes, no withdrawal code paths, and internal ledger databases are virtual-credit platforms. Detect by: checking deployments/addresses.json for 'not_deployed', searching codebase for 'withdraw'/'redeem' keywords, inspecting maintainer payout comments for 'future' prefix.",
       "discovered_at": "2026-07-18T15:00:00Z",
       "applied_count": 1,
-      "tags": ["verification", "escrow", "solana", "real-asset-gate"]
+      "tags": [
+        "verification",
+        "escrow",
+        "solana",
+        "real-asset-gate"
+      ]
     },
     {
       "id": "pattern-006",
@@ -56,7 +82,12 @@
       "description": "When two submit-pr.yml runs execute concurrently, both try to commit state.json. Second push fails with 'fetch first'. Fix: retry push up to 3 times with git pull --rebase between attempts.",
       "discovered_at": "2026-07-17T06:01:00Z",
       "applied_count": 2,
-      "tags": ["git", "race-condition", "workflow", "state.json"]
+      "tags": [
+        "git",
+        "race-condition",
+        "workflow",
+        "state.json"
+      ]
     },
     {
       "id": "pattern-007",
@@ -65,7 +96,12 @@
       "description": "Fine-grained PATs return HTTP 403 for cross-org PR creation, comments, follow, and star operations. Fix: use GH_PAT (Classic PAT with full repo scope) inside GitHub Actions workflows via secrets.GH_PAT.",
       "discovered_at": "2026-07-17T07:20:00Z",
       "applied_count": 15,
-      "tags": ["github-api", "pat", "cross-org", "permissions"]
+      "tags": [
+        "github-api",
+        "pat",
+        "cross-org",
+        "permissions"
+      ]
     },
     {
       "id": "pattern-008",
@@ -74,7 +110,27 @@
       "description": "IssueHunt's /issues page embeds issue data as JSON objects starting with {\"isPullRequest\":. Parse by scanning for this sentinel and walking braces to find object boundaries. Filter to githubState=='open' AND status in {funded, ready}.",
       "discovered_at": "2026-07-17T14:35:00Z",
       "applied_count": 5,
-      "tags": ["scraping", "issuehunt", "json", "html-parsing"]
+      "tags": [
+        "scraping",
+        "issuehunt",
+        "json",
+        "html-parsing"
+      ]
+    },
+    {
+      "id": "pattern-009",
+      "category": "undefined_variable",
+      "title": "undefined_variable resolved in test/repo#6",
+      "description": "Error: NameError: name 'foo' is not defined. Fix: Define the variable or fix the reference.. Target: test/repo#6, language: python.",
+      "fix": "Define the variable or fix the reference.",
+      "discovered_at": "2026-07-19T11:41:39.795110+00:00",
+      "applied_count": 16,
+      "last_applied_at": "2026-07-19T12:12:07.697509+00:00",
+      "tags": [
+        "python",
+        "undefined_variable",
+        "auto-healed"
+      ]
     }
   ],
   "optimization_vectors": [
@@ -106,29 +162,50 @@
       {
         "name": "target-scraper",
         "role": "Discovers and evaluates bounty issues across verified platforms",
-        "inputs": ["state.json", "capability_matrix.py"],
-        "outputs": ["issue assessments with confidence scores"],
+        "inputs": [
+          "state.json",
+          "capability_matrix.py"
+        ],
+        "outputs": [
+          "issue assessments with confidence scores"
+        ],
         "active": true
       },
       {
         "name": "code-architect",
         "role": "Designs and implements solutions for cleared bounty targets",
-        "inputs": ["issue description", "capability_matrix.py", "agent_memory.json"],
-        "outputs": ["solution code + tests"],
+        "inputs": [
+          "issue description",
+          "capability_matrix.py",
+          "agent_memory.json"
+        ],
+        "outputs": [
+          "solution code + tests"
+        ],
         "active": true
       },
       {
         "name": "test-harness",
         "role": "Runs polyglot test suites (pytest, go test, cargo test, npm test) and self-heals failures",
-        "inputs": ["solution code", "polyglot_runner.py"],
-        "outputs": ["test results + lint results"],
+        "inputs": [
+          "solution code",
+          "polyglot_runner.py"
+        ],
+        "outputs": [
+          "test results + lint results"
+        ],
         "active": true
       },
       {
         "name": "security-gatekeeper",
         "role": "Verifies real-asset backing (Stripe/crypto) and blocks virtual-credit bounties",
-        "inputs": ["platform_verification in state.json", "config.py real-asset gate"],
-        "outputs": ["platform verification results"],
+        "inputs": [
+          "platform_verification in state.json",
+          "config.py real-asset gate"
+        ],
+        "outputs": [
+          "platform verification results"
+        ],
         "active": true
       }
     ]

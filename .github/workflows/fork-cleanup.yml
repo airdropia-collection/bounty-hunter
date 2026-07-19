@@ -202,7 +202,15 @@ jobs:
                   if '/' not in parent_full:
                       continue
 
-                  monitor = active_monitors.get(parent_full)
+                  # Check both the exact key and the key with #N suffix stripped
+              # (CBB entries use "claude-builders-bounty/claude-builders-bounty#3")
+              monitor = active_monitors.get(parent_full)
+              if not monitor:
+                  # Try matching any key that starts with parent_full + '#'
+                  for k, v in active_monitors.items():
+                      if k.startswith(parent_full + '#'):
+                          monitor = v
+                          break
                   if monitor:
                       status = str(monitor.get('status', '')).upper()
                       pr_num = monitor.get('pr_number', '?')

@@ -97,6 +97,9 @@ jobs:
           # ── Map PR state → state.json status (agent.md §5) ──────── #
           state_changed = False
           for repo, monitor in list(monitors.items()):
+              # Support composite keys like "claude-builders-bounty/claude-builders-bounty#3"
+              # Strip the #N suffix for API URL construction
+              api_repo = repo.split('#')[0] if '#' in repo else repo
               pr_num = monitor.get('pr_number')
               if not pr_num or not str(pr_num).isdigit():
                   continue
@@ -104,7 +107,7 @@ jobs:
 
               print(f'\n[{repo}] PR #{pr_num} (was: {old_status})')
               try:
-                  pr_data = gh_get(f'https://api.github.com/repos/{repo}/pulls/{pr_num}')
+                  pr_data = gh_get(f'https://api.github.com/repos/{api_repo}/pulls/{pr_num}')
               except Exception as e:
                   print(f'  ⚠️ API error: {e}')
                   continue
@@ -122,7 +125,7 @@ jobs:
                   new_status = 'CLOSED_AND_REJECTED'
               elif gh_state == 'open':
                   try:
-                      reviews = gh_get(f'https://api.github.com/repos/{repo}/pulls/{pr_num}/reviews?per_page=50')
+                      reviews = gh_get(f'https://api.github.com/repos/{api_repo}/pulls/{pr_num}/reviews?per_page=50')
                       if any(r.get('state') == 'CHANGES_REQUESTED' for r in reviews):
                           new_status = 'NEEDS_REVISION'
                       else:
