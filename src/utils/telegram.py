@@ -1,7 +1,21 @@
 """
-Telegram bot notifier.
+Telegram bot notifier with dual-engine telemetry architecture.
 
-Sends live notifications to the user's Telegram.
+Engine 1 — Mutating Pinned HUD (Scoreboard):
+    A single message (tracked by tg_master_hud_message_id in state.json)
+    that is updated in-place via editMessageText on every cycle tick.
+    Displays live pending USD assets, active PRs, and pipeline status.
+
+Engine 2 — Event-Driven Broadcaster (Lifecycle Cards):
+    Independent channel messages reserved exclusively for high-level
+    system mutations (PR status changes, strategy shifts, self-healing).
+    Each card includes inline [🛑 Emergency Stop] / [▶️ Resume Flow] buttons.
+
+Backward Compatibility:
+    All existing methods (send_pipeline_start, send_finding, send_pr_submission,
+    etc.) remain unchanged. The HUD engine is additive — it does not replace
+    existing event notifications, it supplements them by providing a clean,
+    always-up-to-date scoreboard that replaces the noisy send_state_heartbeat().
 
 Setup:
 1. Create a bot via @BotFather on Telegram → get BOT_TOKEN
@@ -10,7 +24,10 @@ Setup:
 """
 from __future__ import annotations
 
+import json
 import os
+from datetime import UTC, datetime
+from pathlib import Path
 
 from src.utils.logger import get_logger
 from src.utils.retry import retry_network
@@ -20,7 +37,7 @@ log = get_logger("telegram")
 
 
 class TelegramNotifier:
-    """Telegram Bot API client for sending notifications."""
+    """Telegram Bot API client with dual-engine telemetry."""
 
     BASE_URL = "https://api.telegram.org"
 
@@ -31,11 +48,8 @@ class TelegramNotifier:
 
         # Clean chat_id: remove spaces (Telegram displays ID with spaces)
         # BUT preserve the leading minus sign — channel IDs start with -100
-        # e.g. "-100 4123 4567 890" → "-10041234567890"
         raw_chat_id = chat_id or os.getenv("TELEGRAM_CHAT_ID", "")
-        # Remove all whitespace, then ensure only digits and leading minus
-        cleaned = "".join(raw_chat_id.split())  # remove all whitespace
-        # Keep leading minus if present, then strip any non-digits after
+        cleaned = "".join(raw_chat_id.split())
         if cleaned.startswith("-"):
             self.chat_id = "-" + "".join(c for c in cleaned[1:] if c.isdigit())
         else:
@@ -43,12 +57,12 @@ class TelegramNotifier:
 
         self._dry_run = not self.token or not self.chat_id
         self._bot_username = ""
+        self._hud_message_id: int | None = None
 
         if self._dry_run:
             log.info("Telegram in DRY-RUN mode (no TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID)")
             return
 
-        # Debug: log lengths (not actual values) for troubleshooting
         log.info(
             "Telegram: token length=%d, chat_id length=%d, chat_id starts=%s ends=%s",
             len(self.token), len(self.chat_id),
@@ -56,8 +70,8 @@ class TelegramNotifier:
             self.chat_id[-4:] if len(self.chat_id) >= 4 else "?",
         )
 
-        # Verify bot token (getMe)
         self._verify_token()
+        self._load_hud_message_id()
 
     def _verify_token(self) -> None:
         """Verify bot token via getMe. Does NOT disable on failure."""
@@ -78,8 +92,7 @@ class TelegramNotifier:
             log.warning("Telegram: getMe error: %s — will retry on send", exc)
 
     def _log_available_chat_ids(self) -> None:
-        """Call getUpdates to find what chat_ids this bot can see.
-        This helps debug 403 Forbidden errors."""
+        """Call getUpdates to find what chat_ids this bot can see."""
         import httpx
 
         try:
@@ -115,7 +128,6 @@ class TelegramNotifier:
                     len(chat_ids),
                 )
                 for cid, ctype, cuser in chat_ids:
-                    # Show first 6 + last 4 digits for easier identification
                     cid_str = str(cid)
                     if len(cid_str) > 10:
                         masked = cid_str[:6] + "..." + cid_str[-4:]
@@ -132,20 +144,51 @@ class TelegramNotifier:
                         "ROOT CAUSE: TELEGRAM_CHAT_ID=%s does NOT match any chat that messaged this bot!",
                         self.chat_id[:6] + "..." + self.chat_id[-4:] if len(self.chat_id) > 10 else self.chat_id,
                     )
-                    log.error(
-                        "FIX: Open https://api.telegram.org/bot<TOKEN>/getUpdates in browser"
-                    )
+                    log.error("FIX: Open https://api.telegram.org/bot<TOKEN>/getUpdates in browser")
                     log.error(
                         "FIX: Copy the chat_id from the response (the one starting with %s...)",
                         str(list(chat_ids)[0][0])[:6] if chat_ids else "??????",
                     )
-                    log.error(
-                        "FIX: Update TELEGRAM_CHAT_ID secret with that EXACT number"
-                    )
+                    log.error("FIX: Update TELEGRAM_CHAT_ID secret with that EXACT number")
             else:
                 log.error("Telegram getUpdates failed: %d", resp.status_code)
         except Exception as exc:
             log.error("Telegram getUpdates error: %s", exc)
+
+    # ────────────────────────────────────────────────────────────────── #
+    # HUD Message ID persistence (state.json)
+    # ────────────────────────────────────────────────────────────────── #
+
+    def _load_hud_message_id(self) -> None:
+        """Load the master HUD message ID from state.json."""
+        try:
+            state_path = Path("state.json")
+            if state_path.exists():
+                state = json.loads(state_path.read_text(encoding="utf-8"))
+                hud_id = state.get("tg_master_hud_message_id")
+                if hud_id and isinstance(hud_id, int):
+                    self._hud_message_id = hud_id
+                    log.info("Telegram HUD message ID loaded: %d", hud_id)
+        except Exception as exc:
+            log.warning("Could not load HUD message ID: %s", exc)
+
+    def _save_hud_message_id(self, message_id: int) -> None:
+        """Persist the master HUD message ID to state.json."""
+        try:
+            state_path = Path("state.json")
+            state = {}
+            if state_path.exists():
+                state = json.loads(state_path.read_text(encoding="utf-8"))
+            state["tg_master_hud_message_id"] = message_id
+            state["tg_hud_updated_at"] = datetime.now(UTC).isoformat()
+            state_path.write_text(
+                json.dumps(state, indent=2, default=str) + "\n",
+                encoding="utf-8",
+            )
+            self._hud_message_id = message_id
+            log.debug("Telegram HUD message ID saved: %d", message_id)
+        except Exception as exc:
+            log.warning("Could not save HUD message ID: %s", exc)
 
     @property
     def is_configured(self) -> bool:
@@ -157,15 +200,7 @@ class TelegramNotifier:
     @staticmethod
     def _control_keyboard(force_resume: bool = False) -> dict:
         """Build the inline keyboard with [🛑 Emergency Stop] and
-        [▶️ Resume Flow] buttons. The button click sends a callback_query
-        to the bot, which the telegram-callback-handler workflow processes
-        to update state.json.
-
-        Args:
-            force_resume: if True, only show the Resume button (used when
-                          the system is already paused, e.g. in the
-                          "system paused" notification).
-        """
+        [▶️ Resume Flow] buttons."""
         if force_resume:
             return {
                 "inline_keyboard": [[
@@ -179,6 +214,10 @@ class TelegramNotifier:
             ]]
         }
 
+    # ------------------------------------------------------------------ #
+    # Core send (Engine 2: Event-Driven Broadcaster)
+    # ------------------------------------------------------------------ #
+
     @retry_network(max_attempts=2, base_delay=1.0, max_delay=5.0)
     def send(
         self,
@@ -186,11 +225,10 @@ class TelegramNotifier:
         parse_mode: str = "Markdown",
         with_controls: bool = False,
     ) -> bool:
-        """Send a text message to Telegram.
+        """Send a NEW text message to Telegram (lifecycle event card).
 
-        Args:
-            with_controls: if True, append the inline [Emergency Stop] /
-                           [Resume Flow] buttons (agent.md §2).
+        This is Engine 2 — use for high-level system mutations only.
+        For routine status updates, use update_master_hud() instead.
         """
         text = sanitize(text, max_len=4000)
 
@@ -216,7 +254,6 @@ class TelegramNotifier:
                 log.debug("Telegram message sent: %s", text[:80])
                 return True
 
-            # Handle errors
             try:
                 err_data = resp.json()
                 err_desc = err_data.get("description", resp.text[:200])
@@ -224,8 +261,6 @@ class TelegramNotifier:
                 err_desc = resp.text[:200]
 
             if resp.status_code == 403:
-                # 403 = bot can't message this chat_id
-                # Run diagnostic ONCE to show available chat_ids
                 log.error("Telegram 403: %s", err_desc)
                 self._log_available_chat_ids()
             else:
@@ -235,6 +270,190 @@ class TelegramNotifier:
         except Exception as exc:
             log.error("Telegram send error: %s", exc)
             return False
+
+    # ------------------------------------------------------------------ #
+    # HUD Engine (Engine 1: Mutating Pinned Scoreboard)
+    # ------------------------------------------------------------------ #
+
+    @retry_network(max_attempts=2, base_delay=1.0, max_delay=5.0)
+    def edit_message_text(
+        self,
+        text: str,
+        message_id: int | None = None,
+        parse_mode: str = "Markdown",
+    ) -> bool:
+        """Edit an existing message in-place via editMessageText API.
+
+        This is the core of Engine 1 — the Mutating Pinned HUD.
+        If message_id is None, uses the stored HUD message ID.
+        If no HUD message exists, falls back to send() (creates a new message).
+        """
+        target_msg_id = message_id or self._hud_message_id
+        text = sanitize(text, max_len=4000)
+
+        if self._dry_run:
+            log.info("[TG-DRY-HUD] %s", text[:100])
+            return False
+
+        if target_msg_id is None:
+            log.info("No HUD message ID — falling back to send() for initial HUD")
+            return self._send_and_pin_hud(text, parse_mode)
+
+        import httpx
+
+        url = f"{self.BASE_URL}/bot{self.token}/editMessageText"
+        payload: dict = {
+            "chat_id": self.chat_id,
+            "message_id": target_msg_id,
+            "text": text,
+            "parse_mode": parse_mode,
+            "disable_web_page_preview": True,
+        }
+
+        try:
+            resp = httpx.post(url, json=payload, timeout=15)
+            if resp.status_code == 200:
+                log.debug("Telegram HUD updated (msg %d)", target_msg_id)
+                return True
+
+            try:
+                err_data = resp.json()
+                err_desc = err_data.get("description", resp.text[:200])
+            except Exception:
+                err_desc = resp.text[:200]
+
+            # If message is gone or can't be edited, create a new one
+            if resp.status_code == 400 and "message is not modified" in err_desc.lower():
+                log.debug("Telegram HUD: content unchanged — skipping")
+                return True
+
+            if resp.status_code in (400, 404):
+                log.warning("Telegram HUD message %d lost — creating new one", target_msg_id)
+                self._hud_message_id = None
+                return self._send_and_pin_hud(text, parse_mode)
+
+            log.error("Telegram editMessageText failed: %d %s", resp.status_code, err_desc)
+            return False
+        except Exception as exc:
+            log.error("Telegram editMessageText error: %s", exc)
+            return False
+
+    def _send_and_pin_hud(self, text: str, parse_mode: str = "Markdown") -> bool:
+        """Send a new message and store its ID as the HUD message.
+
+        Also attempts to pin the message to the channel.
+        """
+        import httpx
+
+        if self._dry_run:
+            log.info("[TG-DRY-HUD-INIT] %s", text[:100])
+            return False
+
+        # Send the message
+        url = f"{self.BASE_URL}/bot{self.token}/sendMessage"
+        payload: dict = {
+            "chat_id": self.chat_id,
+            "text": text,
+            "parse_mode": parse_mode,
+            "disable_web_page_preview": True,
+        }
+
+        try:
+            resp = httpx.post(url, json=payload, timeout=15)
+            if resp.status_code != 200:
+                log.error("Telegram HUD send failed: %d", resp.status_code)
+                return False
+
+            result = resp.json().get("result", {})
+            msg_id = result.get("message_id")
+            if not msg_id:
+                log.error("Telegram HUD: no message_id in response")
+                return False
+
+            self._save_hud_message_id(msg_id)
+            log.info("Telegram HUD message created: %d", msg_id)
+
+            # Attempt to pin (non-blocking — pinning may fail if bot lacks admin rights)
+            try:
+                pin_url = f"{self.BASE_URL}/bot{self.token}/pinChatMessage"
+                pin_resp = httpx.post(pin_url, json={
+                    "chat_id": self.chat_id,
+                    "message_id": msg_id,
+                    "disable_notification": True,
+                }, timeout=10)
+                if pin_resp.status_code == 200:
+                    log.info("Telegram HUD message pinned ✅")
+                else:
+                    log.info("Telegram HUD pin failed (%d) — not critical", pin_resp.status_code)
+            except Exception:
+                pass  # Pinning is optional
+
+            return True
+        except Exception as exc:
+            log.error("Telegram HUD send error: %s", exc)
+            return False
+
+    def update_master_hud(
+        self,
+        pending_usd: int = 0,
+        pending_prs: int = 0,
+        merged_usd: int = 0,
+        merged_count: int = 0,
+        active_platforms: str = "",
+        pipeline_status: str = "IDLE",
+        last_action: str = "",
+    ) -> bool:
+        """Update the master HUD scoreboard with current operational state.
+
+        This replaces the noisy send_state_heartbeat() — instead of sending
+        a new message every cycle, it edits the pinned HUD message in-place.
+
+        Args:
+            pending_usd: Total real USD pending in open PRs
+            pending_prs: Number of open PRs awaiting review
+            merged_usd: Total real USD earned from merged PRs
+            merged_count: Number of merged PRs
+            active_platforms: Comma-separated list of active platforms
+            pipeline_status: Current pipeline status (RUNNING/IDLE/PAUSED)
+            last_action: Brief description of last action taken
+        """
+        now = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
+
+        status_emoji = {
+            "RUNNING": "🟢",
+            "IDLE": "⚪",
+            "PAUSED": "🔴",
+            "HUNTING": "🎯",
+            "BUILDING": "🔨",
+        }.get(pipeline_status, "⚪")
+
+        hud_text = (
+            f"📊 *Bounty Hunter — Live Dashboard*\n"
+            f"━━━━━━━━━━━━━━━━━━\n"
+            f"{status_emoji} *Status:* `{pipeline_status}`\n"
+            f"🕐 *Updated:* {now}\n"
+            f"━━━━━━━━━━━━━━━━━━\n"
+            f"💰 *Real USD Earned:* `${merged_usd}`\n"
+            f"📦 *Merged PRs:* {merged_count}\n"
+            f"⏳ *Pending USD:* `${pending_usd}`\n"
+            f"🔍 *Open PRs:* {pending_prs}\n"
+            f"━━━━━━━━━━━━━━━━━━\n"
+        )
+
+        if active_platforms:
+            hud_text += f"🌐 *Active:* {active_platforms}\n"
+        if last_action:
+            hud_text += f"⚡ *Last:* {last_action[:60]}\n"
+
+        hud_text += "━━━━━━━━━━━━━━━━━━\n"
+        hud_text += "_Auto-updated each cycle · Tap controls below_"
+
+        return self.edit_message_text(hud_text)
+
+    # ------------------------------------------------------------------ #
+    # Lifecycle event methods (Engine 2: Event-Driven Broadcaster)
+    # These remain unchanged for backward compatibility.
+    # ------------------------------------------------------------------ #
 
     def send_pipeline_start(self, platform: str, max_bounties: int) -> None:
         self.send(
@@ -381,7 +600,7 @@ class TelegramNotifier:
         if action.lower() == "merged":
             emoji = "🎉"
             title = "PR MERGED!"
-            payout_note = "💰 *Bounty payout may be processing on IssueHunt!*"
+            payout_note = "💰 *Bounty payout processing!*"
         elif action.lower() == "approved":
             emoji = "✅"
             title = "PR APPROVED!"
@@ -411,9 +630,9 @@ class TelegramNotifier:
     # ------------------------------------------------------------------ #
     # System-level alerts (operator brake + heartbeat)
     # ------------------------------------------------------------------ #
+
     def send_system_paused(self, reason: str = "Operator triggered Emergency Stop") -> None:
-        """Sent when system_status flips to PAUSED. Shows ONLY the Resume
-        button because the system is already stopped."""
+        """Sent when system_status flips to PAUSED."""
         msg = (
             f"🛑 *SYSTEM PAUSED*\n"
             f"━━━━━━━━━━━━━━━━━━\n"
@@ -423,10 +642,6 @@ class TelegramNotifier:
             f"_Tap Resume to continue._"
         )
         self.send(msg, with_controls=True)
-        # Force-resume-only keyboard for the paused state
-        # (re-send with single button so user can't double-pause)
-        # Note: the above send already includes both buttons by default;
-        # for stricter UX, use send_with_force_resume() below.
 
     def send_system_resumed(self) -> None:
         """Sent when system_status flips back to RUNNING."""
@@ -439,20 +654,77 @@ class TelegramNotifier:
         self.send(msg, with_controls=True)
 
     def send_state_heartbeat(self) -> None:
-        """Periodic state snapshot (e.g. once per hour) with controls.
-        Useful for the user to verify the bot is alive."""
+        """Periodic state snapshot — NOW UPDATES THE HUD instead of sending
+        a new message. Falls back to send() if no HUD exists yet.
+
+        This method is preserved for backward compatibility with existing
+        workflow calls (pr-monitor.yml). It now delegates to update_master_hud()
+        instead of creating a new message each time.
+        """
         try:
             from src.utils import state_manager
-            snapshot_text = state_manager.snapshot()
-        except Exception:  # noqa: BLE001
-            snapshot_text = "_state unavailable_"
-        msg = (
-            f"💓 *STATE HEARTBEAT*\n"
-            f"━━━━━━━━━━━━━━━━━━\n"
-            f"{snapshot_text}\n"
-            f"━━━━━━━━━━━━━━━━━━"
-        )
-        self.send(msg, with_controls=True)
+
+            # Gather live metrics from state
+            state = state_manager.read_state()
+            monitors = state.get("active_monitors", {})
+
+            pending_usd = 0
+            pending_prs = 0
+            merged_usd = 0
+            merged_count = 0
+            active_platforms_set: set[str] = set()
+
+            for repo, monitor in monitors.items():
+                status = str(monitor.get("status", "")).upper()
+                bounty_val = str(monitor.get("bounty_value", "")).upper()
+
+                # Extract USD amount from bounty_value if present
+                usd_amount = 0
+                if "$" in bounty_val and "USD" in bounty_val:
+                    try:
+                        # Parse "$100 USD" → 100
+                        usd_amount = int(bounty_val.replace("$", "").replace("USD", "").strip())
+                    except ValueError:
+                        pass
+
+                if status == "MERGED":
+                    merged_count += 1
+                    merged_usd += usd_amount
+                elif status in ("UNDER_REVIEW", "PR_SUBMITTED"):
+                    pending_prs += 1
+                    pending_usd += usd_amount
+
+                platform = monitor.get("platform", "")
+                if platform:
+                    active_platforms_set.add(platform)
+
+            pipeline_status = "PAUSED" if state.get("system_status", "").upper() == "PAUSED" else "RUNNING"
+            last_action = state.get("current_execution_pointer", {}).get("last_action", "")
+
+            self.update_master_hud(
+                pending_usd=pending_usd,
+                pending_prs=pending_prs,
+                merged_usd=merged_usd,
+                merged_count=merged_count,
+                active_platforms=", ".join(sorted(active_platforms_set)) if active_platforms_set else "none",
+                pipeline_status=pipeline_status,
+                last_action=last_action,
+            )
+        except Exception as exc:
+            log.error("Telegram heartbeat/HUD update failed: %s", exc)
+            # Fallback: try a simple send
+            try:
+                from src.utils import state_manager
+                snapshot_text = state_manager.snapshot()
+            except Exception:
+                snapshot_text = "_state unavailable_"
+            msg = (
+                f"💓 *STATE HEARTBEAT (fallback)*\n"
+                f"━━━━━━━━━━━━━━━━━━\n"
+                f"{snapshot_text}\n"
+                f"━━━━━━━━━━━━━━━━━━"
+            )
+            self.send(msg, with_controls=True)
 
 
 # Singleton
