@@ -129,11 +129,24 @@
       "pr_url": "https://github.com/iii123iii/Crystal-PDF/pull/51",
       "pr_title": "fix: responsive landing page for mobile (00 bounty)",
       "submitted_at": "2026-07-19T18:28:02.087862+00:00"
+    },
+    "iii123iii/Crystal-PDF#3": {
+      "pr_number": 51,
+      "status": "PR_SUBMITTED",
+      "bounty_value": "$100 USD (Opire/Stripe)",
+      "platform": "Opire",
+      "issue_number": 3,
+      "fork_branch": "fix/responsive-landing-page-3",
+      "fork_repo": "airdropia-collection/Crystal-PDF",
+      "language": "typescript",
+      "pr_url": "https://github.com/iii123iii/Crystal-PDF/pull/51",
+      "submitted_at": "2026-07-19T18:29:11.296967+00:00",
+      "asset_type": "usd_stripe",
+      "real_asset_verified": true
     }
   },
   "blacklisted_repos": [
     "ThanhTrucSolutions/OriLang",
-    "iii123iii/Crystal-PDF",
     "pannous/redox",
     "xevrion-v2/agent-playground"
   ],
