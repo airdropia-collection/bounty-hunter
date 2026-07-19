@@ -2,10 +2,10 @@
   "system_status": "RUNNING",
   "last_session_sync": "2026-07-19T12:10:47.863639+00:00",
   "current_execution_pointer": {
-    "stage": "INTERACTIVE_MODE_ACTIVE",
-    "last_action": "Pivoted to interactive orchestration \u2014 background crons skip when INTERACTIVE",
-    "current_target_repo": "NONE \u2014 awaiting operator sign-off",
-    "updated_at": "2026-07-19T12:53:03.740534+00:00"
+    "stage": "BATCH_STAGED",
+    "last_action": "2 Go solutions staged on forks \u2014 awaiting PR submission",
+    "current_target_repo": "WillisWilliam8/client_golang + maitebloger111/Apache-Arrow",
+    "updated_at": "2026-07-19T14:27:21.399859+00:00"
   },
   "active_monitors": {
     "jwallet/spy-spotify": {
@@ -68,14 +68,41 @@
       "submitted_at": "2026-07-19T04:08:50.441404+00:00",
       "asset_type": "usd_stripe",
       "real_asset_verified": true
+    },
+    "WillisWilliam8/client_golang#1": {
+      "pr_number": null,
+      "status": "STAGED",
+      "bounty_value": "$10 USD (Opire/Stripe)",
+      "platform": "Opire",
+      "issue_number": 1,
+      "fork_branch": "fix/ttl-eviction-histogramvec-1",
+      "fork_repo": "airdropia-collection/client_golang",
+      "language": "go",
+      "submitted_at": "2026-07-19T14:27:21.399841+00:00",
+      "asset_type": "usd_stripe",
+      "real_asset_verified": true,
+      "solution_summary": "TTLMetricVec: thread-safe TTL eviction for high-cardinality metrics (10 tests)"
+    },
+    "maitebloger111/Apache-Arrow#1": {
+      "pr_number": null,
+      "status": "STAGED",
+      "bounty_value": "$10 USD (Opire/Stripe)",
+      "platform": "Opire",
+      "issue_number": 1,
+      "fork_branch": "fix/partition-pruning-1",
+      "fork_repo": "airdropia-collection/Apache-Arrow",
+      "language": "go",
+      "submitted_at": "2026-07-19T14:27:21.399857+00:00",
+      "asset_type": "usd_stripe",
+      "real_asset_verified": true,
+      "solution_summary": "Bloom filter partition pruner for large datasets (7 tests)"
     }
   },
   "blacklisted_repos": [
     "ThanhTrucSolutions/OriLang",
     "iii123iii/Crystal-PDF",
     "pannous/redox",
-    "xevrion-v2/agent-playground",
-    "zardoy/space-squid"
+    "xevrion-v2/agent-playground"
   ],
   "platform_history": [
     {
