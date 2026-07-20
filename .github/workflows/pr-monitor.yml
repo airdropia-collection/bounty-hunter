@@ -214,7 +214,8 @@ jobs:
           if git diff --cached --quiet; then
             echo "No state changes — skipping commit"
           else
-            git commit -m "🤖 bot: PR monitor updated state.json statuses"
+            # Natural conventional-commit format (persona layer applied).
+            git commit -m "chore(state): sync PR monitor statuses"
             git push
             echo "✅ state.json committed"
           fi

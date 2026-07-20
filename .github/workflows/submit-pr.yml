@@ -61,11 +61,37 @@ jobs:
               exit 1
             )
 
+      # ──────────────────────────────────────────────────────────────── #
+      # NATURAL DEVELOPER PERSONA FILTER (agent.md §6, Cycle 13)
+      # Sanitizes PR title + body BEFORE the GitHub API call to strip:
+      #   - [BOUNTY $X] / [$X USD] prefixes
+      #   - "🤖 bot:" / "AI:" / "Here is the fix:" prefaces
+      #   - markdown template signatures (## Summary, tables, emoji)
+      #   - bot signature strings
+      # Rules centralized in src/config.py:NATURAL_PERSONA.
+      # Enforced by src/utils/persona.py.
+      # ──────────────────────────────────────────────────────────────── #
+      - name: 🎭 Apply Natural Persona Filter
+        env:
+          PR_TITLE: ${{ github.event.inputs.pr_title }}
+          PR_BODY: ${{ github.event.inputs.pr_body }}
+        run: |
+          python -m src.utils.persona --kind pr_title --text "$PR_TITLE" --json > /tmp/pr_title_clean.json
+          python -m src.utils.persona --kind pr_body  --text "$PR_BODY"  --json > /tmp/pr_body_clean.json
+          CLEAN_TITLE=$(python3 -c "import json;print(json.load(open('/tmp/pr_title_clean.json'))['sanitized'])")
+          CLEAN_BODY=$(python3 -c "import json;print(json.load(open('/tmp/pr_body_clean.json'))['sanitized'])")
+          echo "Persona filter applied:"
+          python3 -c "import json; t=json.load(open('/tmp/pr_title_clean.json')); print(f'  title: changed={t[\"changed\"]!r}')"
+          python3 -c "import json; b=json.load(open('/tmp/pr_body_clean.json'));  print(f'  body:  changed={b[\"changed\"]!r}')"
+          # Export sanitized values to subsequent steps via GITHUB_ENV
+          echo "PR_TITLE_CLEAN=$CLEAN_TITLE" >> $GITHUB_ENV
+          echo "PR_BODY_CLEAN=$CLEAN_BODY" >> $GITHUB_ENV
+
       - name: Create PR via GitHub API
         env:
           GH_PAT: ${{ secrets.GH_PAT }}
-          PR_TITLE: ${{ github.event.inputs.pr_title }}
-          PR_BODY: ${{ github.event.inputs.pr_body }}
+          PR_TITLE: ${{ env.PR_TITLE_CLEAN }}
+          PR_BODY: ${{ env.PR_BODY_CLEAN }}
           FORK_BRANCH: ${{ github.event.inputs.fork_branch }}
           UPSTREAM_BRANCH: ${{ github.event.inputs.upstream_branch }}
           UPSTREAM_REPO: ${{ github.event.inputs.upstream_repo }}
@@ -102,7 +128,7 @@ jobs:
           PR_NUMBER: ${{ env.PR_NUMBER }}
           PR_URL: ${{ env.PR_URL }}
           UPSTREAM_REPO: ${{ env.UPSTREAM_REPO }}
-          PR_TITLE: ${{ github.event.inputs.pr_title }}
+          PR_TITLE: ${{ env.PR_TITLE_CLEAN }}
         run: |
           python3 - <<PYEOF
           import json, os
@@ -144,7 +170,9 @@ jobs:
           if git diff --cached --quiet; then
             echo "No state changes — skipping commit"
           else
-            git commit -m "🤖 bot: register PR #${PR_NUMBER} on ${UPSTREAM_REPO} in state.json"
+            # Commit message uses natural conventional-commit format
+            # (persona layer applied here too — no 🤖 prefix).
+            git commit -m "chore(state): register PR #${PR_NUMBER} on ${UPSTREAM_REPO}"
             # ─── Race condition mitigation (added 2026-07-18, Phase 1.2) ───
             # If another submit-pr.yml run committed state.json between our
             # checkout and now, our push will be rejected with "fetch first".

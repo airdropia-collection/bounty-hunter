@@ -112,6 +112,59 @@ Before creating a cross-repo branch or raising a Pull Request, the code runner M
 - Local Regression Check: Ensure the change does not break existing application modules.
 - Security Ingestion Scan: Run a quick automated check to ensure it does not accidentally hardcode any API keys or credentials.
 
+## 4.5 Natural Developer Persona Filter (MANDATORY — added 2026-07-20, Cycle 13)
+
+All external git artifacts (commit messages, PR titles, PR bodies) MUST pass
+through the persona layer before reaching the GitHub API. The filter is
+enforced by `src/utils/persona.py` and reads its rules from the centralized
+`NATURAL_PERSONA` block in `src/config.py`.
+
+**Why this exists:** Previous cycles leaked rigid AI signatures into upstream
+PRs — `[BOUNTY $100]` prefixes, `🤖 bot:` commit prefixes, `## Summary` markdown
+headings, AI preface phrases ("As an AI", "Here is the", "I'd be happy to").
+Hostile maintainers flag these as bot activity and reject PRs without review.
+
+**What the filter strips:**
+- `[BOUNTY $X]` / `[$X USD]` prefixes from PR titles
+- `🤖` / `🚀` / `✅` / `❌` / `🎯` / `📝` emoji from all external text
+- `[BOT]` / `shield` / `bounty-hunter-bot` signature strings
+- Markdown table blocks (GFM `|---|` syntax) from PR bodies
+- Markdown heading prefixes at body start (`## Summary`, `## Description`, `### What`, `### Why`)
+- AI preface phrases ("As an AI", "I'd be happy to", "Here is the", "Let me know if", etc.)
+- "This PR" / "This pull request" opener sentences
+
+**What the filter preserves:**
+- Issue references (`(#123)`, `Closes #42`, `Refs #42`)
+- Code blocks (```` ``` ```` fenced) — never touched
+- Natural prose with paragraph breaks
+- Proper nouns and original case (after stripping prefixes)
+
+**How to use it (operator):**
+- When manually invoking `submit-pr.yml`, you can pass raw titles/bodies — the workflow will auto-sanitize them before the GitHub API call.
+- When constructing PR text in scripts, prefer the `build_*` helpers over `sanitize_*`:
+  ```python
+  from src.utils.persona import build_commit_message, build_pr_title, build_pr_body
+
+  commit = build_commit_message("fix", "resolve TTL metric goroutine leak", scope="metrics", issue_ref=42, body="...")
+  title  = build_pr_title("Prevent TTL metric goroutine leak", issue_ref=42)
+  body   = build_pr_body(what="...", why="...", how="...", issue_ref=42, testing_notes="...")
+  ```
+
+**CLI for ad-hoc sanitization:**
+```bash
+python -m src.utils.persona --kind pr_title --text "[BOUNTY $100] Foo" --json
+python -m src.utils.persona --kind pr_body  --text "$LONG_BODY"        --json
+python -m src.utils.persona --kind commit   --text "🤖 bot: ..."        --json
+```
+
+**Internal telemetry is EXEMPT:** Telegram HUD messages, lifecycle cards, internal
+log lines, and `state.json` may still use emoji and bot signatures — they are
+never routed through the persona filter. Only text destined for upstream
+GitHub repos (PR title, PR body, commit message on upstream branches) is filtered.
+
+**Tests:** `tests/test_utils/test_persona.py` — 62 tests including regression
+cases for every real bot signature that leaked in previous cycles.
+
 ## 5. Smart Repository Lifecycle & Retention
 - Monitor 'state.json' for active PR tracking.
 - NEVER delete a fork if: The PR status is "UNDER_REVIEW" or "NEEDS_REVISION" (where a maintainer asks for a code change/fix adjustment).

@@ -53,7 +53,8 @@ jobs:
           if git diff --cached --quiet; then
             echo "No state changes — skipping commit"
           else
-            git commit -m "🤖 bot: state.json updated by telegram-callback-handler"
+            # Natural conventional-commit format (persona layer applied).
+            git commit -m "chore(state): apply telegram callback update"
             git push
             echo "✅ state.json committed"
           fi
