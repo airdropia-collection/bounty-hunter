@@ -1,8 +1,6 @@
 name: 🎯 Batch Hunt (Polyglot)
 
 on:
-  schedule:
-    - cron: '0 */6 * * *'  # Every 6 hours
   workflow_dispatch:
     inputs:
       max_targets:

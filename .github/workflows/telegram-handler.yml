@@ -11,8 +11,6 @@ name: 🎛️ Telegram Callback Handler
 # (which checks state_manager.is_paused() before doing anything).
 
 on:
-  schedule:
-    - cron: '*/5 * * * *'  # Every 5 minutes (GitHub Actions minimum)
   workflow_dispatch:
 
 permissions:

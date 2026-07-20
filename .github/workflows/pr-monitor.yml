@@ -1,8 +1,6 @@
 name: 👀 PR Monitor (State-Aware)
 
 on:
-  schedule:
-    - cron: '*/30 * * * *'  # Every 30 minutes
   workflow_dispatch:
 
 permissions:
