@@ -1,0 +1,67 @@
+name: 💬 Post Issue Comment (Claim / Response)
+
+on:
+  workflow_dispatch:
+    inputs:
+      upstream_repo:
+        description: 'Target repo (owner/repo)'
+        required: true
+      issue_number:
+        description: 'Issue number to comment on'
+        required: true
+      comment_body:
+        description: 'Comment body (multi-line OK)'
+        required: true
+
+jobs:
+  post_comment:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GH_PAT }}
+          fetch-depth: 1
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # ──────────────────────────────────────────────────────────────── #
+      # NATURAL PERSONA FILTER (agent.md §4.5)
+      # Sanitizes the comment body BEFORE posting to ensure no bot
+      # signatures, AI prefaces, or markdown template headers leak into
+      # the upstream issue thread.
+      # ──────────────────────────────────────────────────────────────── #
+      - name: 🎭 Apply Natural Persona Filter
+        env:
+          COMMENT_BODY: ${{ github.event.inputs.comment_body }}
+        run: |
+          python -m src.utils.persona --kind pr_body --text "$COMMENT_BODY" --json > /tmp/comment_clean.json
+          CLEAN_BODY=$(python3 -c "import json;print(json.load(open('/tmp/comment_clean.json'))['sanitized'])")
+          python3 -c "import json; d=json.load(open('/tmp/comment_clean.json')); print(f'persona filter: changed={d[\"changed\"]!r}')"
+          echo "COMMENT_BODY_CLEAN=$CLEAN_BODY" >> $GITHUB_ENV
+
+      - name: 💬 Post comment via GitHub API
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+          UPSTREAM_REPO: ${{ github.event.inputs.upstream_repo }}
+          ISSUE_NUMBER: ${{ github.event.inputs.issue_number }}
+          COMMENT_BODY: ${{ env.COMMENT_BODY_CLEAN }}
+        run: |
+          PAYLOAD=$(jq -n --arg body "$COMMENT_BODY" '{body: $body}')
+          echo "Posting comment to $UPSTREAM_REPO issue #$ISSUE_NUMBER ($(echo "$PAYLOAD" | wc -c) bytes)"
+          RESPONSE=$(curl -sS -X POST \
+            -H "Authorization: Bearer $GH_PAT" \
+            -H "Accept: application/vnd.github+json" \
+            -d "$PAYLOAD" \
+            "https://api.github.com/repos/$UPSTREAM_REPO/issues/$ISSUE_NUMBER/comments")
+          echo "$RESPONSE"
+          COMMENT_URL=$(echo "$RESPONSE" | python3 -c "import json,sys;print(json.load(sys.stdin).get('html_url','FAILED'))" 2>/dev/null)
+          if [ "$COMMENT_URL" = "FAILED" ] || [ -z "$COMMENT_URL" ]; then
+            echo "❌ Comment posting failed!"
+            exit 1
+          fi
+          echo "✅ Comment posted: $COMMENT_URL"

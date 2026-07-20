@@ -1,0 +1,61 @@
+name: 🔒 Close PR
+
+on:
+  workflow_dispatch:
+    inputs:
+      upstream_repo:
+        description: 'Target repo (owner/repo)'
+        required: true
+      pr_number:
+        description: 'PR number to close'
+        required: true
+      reason:
+        description: 'Reason (posted as a closing comment)'
+        required: true
+
+jobs:
+  close_pr:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GH_PAT }}
+          fetch-depth: 1
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 🎭 Apply Natural Persona Filter
+        env:
+          REASON: ${{ github.event.inputs.reason }}
+        run: |
+          python -m src.utils.persona --kind pr_body --text "$REASON" --json > /tmp/reason_clean.json
+          CLEAN_REASON=$(python3 -c "import json;print(json.load(open('/tmp/reason_clean.json'))['sanitized'])")
+          echo "REASON_CLEAN=$CLEAN_REASON" >> $GITHUB_ENV
+
+      - name: 🔒 Post closing comment + close PR
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+          UPSTREAM_REPO: ${{ github.event.inputs.upstream_repo }}
+          PR_NUMBER: ${{ github.event.inputs.pr_number }}
+          REASON: ${{ env.REASON_CLEAN }}
+        run: |
+          # 1. Post closing comment
+          PAYLOAD=$(jq -n --arg body "$REASON" '{body: $body}')
+          curl -sS -X POST \
+            -H "Authorization: Bearer $GH_PAT" \
+            -H "Accept: application/vnd.github+json" \
+            -d "$PAYLOAD" \
+            "https://api.github.com/repos/$UPSTREAM_REPO/issues/$PR_NUMBER/comments"
+          # 2. Close the PR
+          CLOSE_PAYLOAD='{"state":"closed"}'
+          RESPONSE=$(curl -sS -X PATCH \
+            -H "Authorization: Bearer $GH_PAT" \
+            -H "Accept: application/vnd.github+json" \
+            -d "$CLOSE_PAYLOAD" \
+            "https://api.github.com/repos/$UPSTREAM_REPO/pulls/$PR_NUMBER")
+          echo "$RESPONSE" | python3 -c "import json,sys;d=json.load(sys.stdin);print(f'PR #{d.get(\"number\",\"?\")} state={d.get(\"state\",\"?\")} closed_at={d.get(\"closed_at\",\"?\")}')"
