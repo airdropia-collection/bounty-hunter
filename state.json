@@ -1,6 +1,6 @@
 {
   "system_status": "RUNNING",
-  "last_session_sync": "2026-07-20T04:36:09.272091+00:00",
+  "last_session_sync": "2026-07-20T08:34:46.457770+00:00",
   "current_execution_pointer": {
     "stage": "PR_SUBMITTED",
     "last_action": "Submitted PR #51 to iii123iii/Crystal-PDF",
@@ -11,12 +11,6 @@
       "pr_number": 535,
       "status": "UNDER_REVIEW",
       "bounty_value": "$25",
-      "platform": "IssueHunt"
-    },
-    "zhangjiayang6835-cyber/ai-research": {
-      "pr_number": 1231,
-      "status": "UNDER_REVIEW",
-      "bounty_value": "$150",
       "platform": "IssueHunt"
     },
     "marcosgriselli/SwipeableTabBarController": {
@@ -41,7 +35,8 @@
       "submitted_at": "2026-07-19T04:08:50.441374+00:00",
       "asset_type": "usd_stripe",
       "real_asset_verified": true,
-      "updated_at": "2026-07-19T14:53:42.990309+00:00"
+      "updated_at": "2026-07-20T08:34:46.457749+00:00",
+      "claim_comment_posted_at": "2026-07-20T08:30:44Z"
     },
     "claude-builders-bounty/claude-builders-bounty#1": {
       "pr_number": 3499,
@@ -55,7 +50,8 @@
       "submitted_at": "2026-07-19T04:08:50.441398+00:00",
       "asset_type": "usd_stripe",
       "real_asset_verified": true,
-      "updated_at": "2026-07-19T14:53:43.559348+00:00"
+      "updated_at": "2026-07-20T08:34:46.457754+00:00",
+      "claim_comment_posted_at": "2026-07-20T08:30:48Z"
     },
     "claude-builders-bounty/claude-builders-bounty#4": {
       "pr_number": 3500,
@@ -69,7 +65,8 @@
       "submitted_at": "2026-07-19T04:08:50.441404+00:00",
       "asset_type": "usd_stripe",
       "real_asset_verified": true,
-      "updated_at": "2026-07-19T14:53:44.134926+00:00"
+      "updated_at": "2026-07-20T08:34:46.457758+00:00",
+      "claim_comment_posted_at": "2026-07-20T08:30:51Z"
     },
     "WillisWilliam8/client_golang#1": {
       "pr_number": 4,
@@ -85,7 +82,8 @@
       "submitted_at": "2026-07-19T14:29:41.381918+00:00",
       "asset_type": "usd_stripe",
       "real_asset_verified": true,
-      "updated_at": "2026-07-19T14:53:44.693053+00:00"
+      "updated_at": "2026-07-20T08:34:46.457760+00:00",
+      "claim_comment_posted_at": "2026-07-20T08:30:54Z"
     },
     "maitebloger111/Apache-Arrow#1": {
       "pr_number": 5,
@@ -101,7 +99,8 @@
       "submitted_at": "2026-07-19T14:29:41.381933+00:00",
       "asset_type": "usd_stripe",
       "real_asset_verified": true,
-      "updated_at": "2026-07-19T14:53:45.260891+00:00"
+      "updated_at": "2026-07-20T08:34:46.457763+00:00",
+      "claim_comment_posted_at": "2026-07-20T08:30:57Z"
     },
     "WillisWilliam8/client_golang": {
       "pr_number": 4,
@@ -143,7 +142,8 @@
       "submitted_at": "2026-07-19T18:29:11.296967+00:00",
       "asset_type": "usd_stripe",
       "real_asset_verified": true,
-      "updated_at": "2026-07-19T18:49:12.786647+00:00"
+      "updated_at": "2026-07-20T08:34:46.457766+00:00",
+      "claim_comment_posted_at": "2026-07-20T08:31:05Z"
     }
   },
   "blacklisted_repos": [
@@ -346,5 +346,25 @@
   "banned_platforms": [
     "dework"
   ],
-  "github_status_gate": true
+  "github_status_gate": true,
+  "archive": [
+    {
+      "pr_number": 1231,
+      "status": "CLOSED_PARENT_ISSUE_GONE",
+      "bounty_value": "$150",
+      "platform": "IssueHunt",
+      "updated_at": "2026-07-20T08:34:46.457717+00:00",
+      "closure_reason": "Parent issue #1216 was closed on 2026-07-19; no path to bounty payout"
+    }
+  ],
+  "last_pr_health_audit": {
+    "audit_at": "2026-07-20T08:34:46.457768+00:00",
+    "total_prs_audited": 9,
+    "mergeable_clean": 7,
+    "mergeable_unstable": 2,
+    "maintainer_questions_detected": 0,
+    "claim_comments_posted": 6,
+    "dead_prs_closed": 1,
+    "auditor": "GLM Engine - Cycle 14 PR Health Audit"
+  }
 }
