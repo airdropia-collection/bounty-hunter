@@ -1,20 +1,6 @@
 name: 🎯 Bounty Hunter
 
 on:
-  schedule:
-    # ──────────────────────────────────────────────────────────────── #
-    # Every 1 hour (changed from 6h per user directive 2026-07-17)
-    #
-    # ⚠️ GitHub Actions free tier = 2000 min/month.
-    #    With hourly runs + ~5 min per run = ~3600 min/month.
-    #    This EXCEEDS free tier — upgrade to Pro or reduce frequency
-    #    if you hit limits. Watch usage at:
-    #    https://github.com/settings/billing
-    #
-    # If PAUSED in state.json, the workflow still triggers but the
-    # '🛑 Check PAUSED state' step exits early (~30 sec, minimal cost).
-    # ──────────────────────────────────────────────────────────────── #
-    - cron: '0 * * * *'  # Every hour at minute 0
   workflow_dispatch:
     inputs:
       platform:
