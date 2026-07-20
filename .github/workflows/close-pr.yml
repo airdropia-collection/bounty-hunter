@@ -34,8 +34,11 @@ jobs:
           REASON: ${{ github.event.inputs.reason }}
         run: |
           python -m src.utils.persona --kind pr_body --text "$REASON" --json > /tmp/reason_clean.json
-          CLEAN_REASON=$(python3 -c "import json;print(json.load(open('/tmp/reason_clean.json'))['sanitized'])")
-          echo "REASON_CLEAN=$CLEAN_REASON" >> $GITHUB_ENV
+          {
+            echo "REASON_CLEAN<<PERSONA_EOF"
+            python3 -c "import json;print(json.load(open('/tmp/reason_clean.json'))['sanitized'])"
+            echo "PERSONA_EOF"
+          } >> $GITHUB_ENV
 
       - name: 🔒 Post closing comment + close PR
         env:

@@ -40,9 +40,14 @@ jobs:
           COMMENT_BODY: ${{ github.event.inputs.comment_body }}
         run: |
           python -m src.utils.persona --kind pr_body --text "$COMMENT_BODY" --json > /tmp/comment_clean.json
-          CLEAN_BODY=$(python3 -c "import json;print(json.load(open('/tmp/comment_clean.json'))['sanitized'])")
           python3 -c "import json; d=json.load(open('/tmp/comment_clean.json')); print(f'persona filter: changed={d[\"changed\"]!r}')"
-          echo "COMMENT_BODY_CLEAN=$CLEAN_BODY" >> $GITHUB_ENV
+          # Use the GITHUB_ENV multi-line delimiter format so newlines in
+          # the comment body don't break the env file parser.
+          {
+            echo "COMMENT_BODY_CLEAN<<PERSONA_EOF"
+            python3 -c "import json;print(json.load(open('/tmp/comment_clean.json'))['sanitized'])"
+            echo "PERSONA_EOF"
+          } >> $GITHUB_ENV
 
       - name: 💬 Post comment via GitHub API
         env:
