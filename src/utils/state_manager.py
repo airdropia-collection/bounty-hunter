@@ -156,16 +156,62 @@ def update_pointer(
 # --------------------------------------------------------------------------- #
 # Active PR monitors (protects forks from deletion)
 # --------------------------------------------------------------------------- #
+def _normalize_repo_key(repo: str) -> str:
+    """Strip ``#N`` issue suffix from a monitor key for dedup comparisons.
+
+    Monitor keys come in two flavors (``"owner/repo"`` and ``"owner/repo#N"``)
+    but both refer to the same upstream repo for dedup purposes.
+    """
+    return repo.split("#", 1)[0] if "#" in repo else repo
+
+
+def find_monitor_by_pr(repo: str, pr_number: int | str) -> str | None:
+    """Return the existing monitor key that tracks ``(repo, pr_number)``.
+
+    Matches flexibly across the two key formats:
+      - exact ``repo`` match (e.g. ``"owner/repo"``)
+      - ``repo#N`` suffix match (e.g. ``"owner/repo#3"`` — same upstream repo)
+
+    Returns the matching key string (so callers can update it in place) or
+    ``None`` if no existing monitor tracks this PR. Used by ``add_monitor()``
+    and by workflow scripts to prevent duplicate registration of the same PR
+    under two different keys (Cycle 15 root cause).
+    """
+    state = read_state()
+    monitors = state.get("active_monitors", {})
+    target_repo = _normalize_repo_key(repo)
+    target_pr = int(pr_number) if str(pr_number).isdigit() else pr_number
+    for key, monitor in monitors.items():
+        if monitor.get("pr_number") != target_pr:
+            continue
+        if _normalize_repo_key(key) == target_repo:
+            return key
+    return None
+
+
 def add_monitor(
     repo: str,
     pr_number: int | str,
     status: str = "UNDER_REVIEW",
     bounty_value: str = "",
     platform: str = "",
-) -> None:
+) -> bool:
     """Register a PR under active monitoring. Fork cleanup MUST NOT
     delete a fork whose upstream repo has an active monitor with a
-    protected status (UNDER_REVIEW or NEEDS_REVISION)."""
+    protected status (UNDER_REVIEW or NEEDS_REVISION).
+
+    Returns ``True`` if a new monitor was created, ``False`` if a monitor
+    for the same ``(repo, pr_number)`` already existed (dedup guard —
+    Cycle 15 root cause: duplicates were created when callers passed
+    ``"owner/repo"`` and ``"owner/repo#N"`` keys for the same PR).
+    """
+    existing_key = find_monitor_by_pr(repo, pr_number)
+    if existing_key is not None:
+        log.warning(
+            "add_monitor skipped — PR #%s on %s already tracked under key %r",
+            pr_number, _normalize_repo_key(repo), existing_key,
+        )
+        return False
     state = read_state()
     state["active_monitors"][repo] = {
         "pr_number": int(pr_number) if str(pr_number).isdigit() else pr_number,
@@ -175,6 +221,7 @@ def add_monitor(
         "added_at": datetime.now(UTC).isoformat(),
     }
     write_state(state)
+    return True
 
 
 def update_monitor_status(repo: str, status: str) -> bool:
