@@ -131,9 +131,14 @@ jobs:
           PR_TITLE: ${{ env.PR_TITLE_CLEAN }}
         run: |
           python3 - <<PYEOF
-          import json, os
+          import json, os, sys
           from pathlib import Path
           from datetime import datetime, timezone
+
+          # Import the state_manager helpers (Cycle 16 dedup guard).
+          # PYTHONPATH includes the repo root so 'src' is importable.
+          sys.path.insert(0, str(Path.cwd()))
+          from src.utils import state_manager
 
           upstream = os.environ["UPSTREAM_REPO"]
           pr_number_raw = os.environ.get("PR_NUMBER", "")
@@ -141,25 +146,43 @@ jobs:
           pr_url = os.environ.get("PR_URL", "")
           pr_title = os.environ.get("PR_TITLE", "")
 
-          state_path = Path("state.json")
-          state = json.loads(state_path.read_text()) if state_path.exists() else {}
-          state.setdefault("active_monitors", {})[upstream] = {
-              "pr_number": pr_number,
-              "status": "UNDER_REVIEW",
-              "bounty_value": "",
-              "platform": "manual",
-              "pr_url": pr_url,
-              "pr_title": pr_title,
-              "submitted_at": datetime.now(timezone.utc).isoformat(),
-          }
+          # Dedup guard: if a monitor for this (repo, pr_number) already exists,
+          # update it in place instead of creating a duplicate entry.
+          # (Cycle 15 root cause: bare 'owner/repo' and 'owner/repo#N' keys
+          # for the same PR created orphan duplicates that confused pr-monitor.)
+          existing_key = state_manager.find_monitor_by_pr(upstream, pr_number)
+          if existing_key is not None:
+              print(f"⚠️  Monitor for PR #{pr_number} on {upstream} already exists under key '{existing_key}' — updating in place")
+              state = state_manager.read_state()
+              monitor = state["active_monitors"][existing_key]
+              monitor["pr_url"] = pr_url
+              monitor["pr_title"] = pr_title
+              monitor["status"] = "UNDER_REVIEW"
+              monitor["updated_at"] = datetime.now(timezone.utc).isoformat()
+              # Don't overwrite bounty_value/platform if already set (richer metadata wins)
+              monitor.setdefault("bounty_value", "")
+              monitor.setdefault("platform", "manual")
+              monitor.setdefault("submitted_at", datetime.now(timezone.utc).isoformat())
+          else:
+              print(f"✅ No existing monitor for PR #{pr_number} on {upstream} — creating new entry")
+              state = state_manager.read_state()
+              state["active_monitors"][upstream] = {
+                  "pr_number": pr_number,
+                  "status": "UNDER_REVIEW",
+                  "bounty_value": "",
+                  "platform": "manual",
+                  "pr_url": pr_url,
+                  "pr_title": pr_title,
+                  "submitted_at": datetime.now(timezone.utc).isoformat(),
+              }
+
           state["current_execution_pointer"] = {
               "stage": "PR_SUBMITTED",
               "last_action": f"Submitted PR #{pr_number} to {upstream}",
               "current_target_repo": upstream,
           }
-          state["last_session_sync"] = datetime.now(timezone.utc).isoformat()
-          state_path.write_text(json.dumps(state, indent=2, default=str))
-          print(f"✅ state.json updated: monitor added for {upstream} PR #{pr_number}")
+          state_manager.write_state(state)
+          print(f"✅ state.json updated: monitor for {upstream} PR #{pr_number} registered")
           PYEOF
 
       - name: Commit state.json
