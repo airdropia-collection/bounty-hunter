@@ -201,14 +201,16 @@ jobs:
                       continue
 
                   # Check both the exact key and the key with #N suffix stripped
-              # (CBB entries use "claude-builders-bounty/claude-builders-bounty#3")
-              monitor = active_monitors.get(parent_full)
-              if not monitor:
-                  # Try matching any key that starts with parent_full + '#'
-                  for k, v in active_monitors.items():
-                      if k.startswith(parent_full + '#'):
-                          monitor = v
-                          break
+                  # (CBB entries use "claude-builders-bounty/claude-builders-bounty#3")
+                  monitor = active_monitors.get(parent_full)
+                  if not monitor:
+                      # Try matching any key that starts with parent_full + '#'
+                      for k, v in active_monitors.items():
+                          if k.startswith(parent_full + '#'):
+                              monitor = v
+                              break
+
+                  delete = False
                   if monitor:
                       status = str(monitor.get('status', '')).upper()
                       pr_num = monitor.get('pr_number', '?')
@@ -219,6 +221,7 @@ jobs:
                           print(f'  ⚠️ KEEP {fork_name}: upstream {parent_full} PR #{pr_num} status={status} (not in deletable set)')
                           continue
                       print(f'  🗑️ DELETE {fork_name}: upstream {parent_full} PR #{pr_num} status={status}')
+                      delete = True
                   else:
                       try:
                           resp = gh_api(f'https://api.github.com/repos/{parent_full}/pulls?state=all&per_page=100')
@@ -230,6 +233,7 @@ jobs:
 
                       if not our_prs:
                           print(f'  🗑️ DELETE {fork_name}: no PRs from our fork (legacy cleanup)')
+                          delete = True
                       else:
                           latest_pr = our_prs[0]
                           pr_state = latest_pr.get('state', 'open')
@@ -246,27 +250,34 @@ jobs:
                               continue
                           elif merged_at:
                               print(f'  🗑️ DELETE {fork_name}: upstream PR #{latest_pr.get("number")} MERGED')
+                              delete = True
                           else:
                               print(f'  🗑️ DELETE {fork_name}: upstream PR #{latest_pr.get("number")} closed (rejected)')
+                              delete = True
 
-                  # ── Perform the deletion ──────────────────────────────── #
-                  try:
-                      del_resp = gh_api(f'https://api.github.com/repos/{fork_name}', method_verb='DELETE')
-                      print(f'    ✅ Deleted (HTTP {del_resp.status})')
+                  if delete:
+                      # ── Perform the deletion ──────────────────────────────── #
+                      try:
+                          del_resp = gh_api(f'https://api.github.com/repos/{fork_name}', method_verb='DELETE')
+                          print(f'    ✅ Deleted (HTTP {del_resp.status})')
 
-                      if parent_full in active_monitors:
-                          del active_monitors[parent_full]
+                          # Remove monitor entries for this upstream (both bare and #N-suffixed keys)
+                          if parent_full in active_monitors:
+                              del active_monitors[parent_full]
+                          for k in list(active_monitors.keys()):
+                              if k.startswith(parent_full + '#'):
+                                  del active_monitors[k]
 
-                      tg_send(
-                          f'🧹 *Fork Cleanup*\n'
-                          f'━━━━━━━━━━━━━━━━━━\n'
-                          f'📦 Deleted: `{fork_name}`\n'
-                          f'🔗 Upstream: `{parent_full}`\n'
-                          f'_Fork retention policy applied._\n'
-                          f'━━━━━━━━━━━━━━━━━━'
-                      )
-                  except Exception as e:
-                      print(f'    ❌ Failed: {e}')
+                          tg_send(
+                              f'🧹 *Fork Cleanup*\n'
+                              f'━━━━━━━━━━━━━━━━━━\n'
+                              f'📦 Deleted: `{fork_name}`\n'
+                              f'🔗 Upstream: `{parent_full}`\n'
+                              f'_Fork retention policy applied._\n'
+                              f'━━━━━━━━━━━━━━━━━━'
+                          )
+                      except Exception as e:
+                          print(f'    ❌ Failed: {e}')
 
               # ── Persist updated state.json ──────────────────────────── #
               state['active_monitors'] = active_monitors
