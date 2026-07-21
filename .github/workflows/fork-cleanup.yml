@@ -191,9 +191,19 @@ jobs:
                       continue
 
                   fork_name = fork['full_name']
-                  parent_url = fork.get('parent', {}).get('url', '')
+                  # The list endpoint (GET /orgs/{org}/repos) does NOT include the
+                  # 'parent' field for forks — only the single-repo endpoint does.
+                  # Fetch each fork's full data to get parent info.
+                  try:
+                      resp = gh_api(f'https://api.github.com/repos/{fork_name}')
+                      fork_full = json.loads(resp.read())
+                  except Exception as e:
+                      print(f'  ⚠️ SKIP {fork_name}: could not fetch full repo data ({e})')
+                      continue
+
+                  parent_url = fork_full.get('parent', {}).get('url', '')
                   if not parent_url:
-                      print(f'  SKIP {fork_name}: no parent info')
+                      print(f'  SKIP {fork_name}: no parent info (not a fork?)')
                       continue
 
                   parent_full = parent_url.replace('https://api.github.com/repos/', '')
