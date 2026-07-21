@@ -1,11 +1,11 @@
 {
   "system_status": "RUNNING",
-  "last_session_sync": "2026-07-21T18:26:12.171556+00:00",
+  "last_session_sync": "2026-07-21T19:51:58.424408+00:00",
   "current_execution_pointer": {
-    "stage": "CYCLE_19_COMPLETE",
-    "last_action": "Cycle 19: Dework scraper hardened (Layer 2 code-keyword filter), CyberConnect candidate rejected, 8 PRs verified healthy",
+    "stage": "CYCLE_20_COMPLETE",
+    "last_action": "Cycle 20: multi-platform sweep complete. Found 2 new CBB code bounties (#5 $200 n8n workflow, #2 $75 CLAUDE.md template). 8 active PRs verified healthy, zero drift. Test suite 403 passed.",
     "current_target_repo": "NONE",
-    "updated_at": "2026-07-21T18:26:12.171554+00:00"
+    "updated_at": "2026-07-21T19:51:58.424406+00:00"
   },
   "active_monitors": {
     "jwallet/spy-spotify": {
@@ -314,66 +314,91 @@
   },
   "dework_candidates": [
     {
-      "id": "dework-cyberconnect-1-tg-growth-lead",
-      "discovered_at": "2026-07-21T10:42:40.573541+00:00",
-      "discovery_cycle": 18,
-      "status": "REJECTED — non-code task (Cycle 19 code-only mandate)",
-      "platform": "dework",
-      "org": {
-        "name": "CyberConnect",
-        "slug": "cyberconnect-1",
-        "ecosystem": "Web3 social graph (cyberconnect.com)"
-      },
-      "workspace": "Telegram Growth",
-      "task": {
-        "id": "cyberconnect-tg-growth-lead",
-        "name": "Telegram Growth Lead",
-        "status": "TODO",
-        "assignees": [],
-        "due_date": null
-      },
-      "reward": {
-        "symbol": "USDC",
-        "amount_human": 200.0,
-        "usd_value": 200.0,
-        "token_address": null,
-        "amount_raw": "200000000"
-      },
-      "org_history": {
-        "done_rewarded_tasks": 0,
-        "payout_evidence": "NONE — org has 0 DONE+rewarded tasks on Dework",
-        "external_reputation": "CyberConnect is a known Web3 project (cyberconnect.com), but no Dework payout history to verify."
+      "id": "cbb-5-n8n-claude-workflow",
+      "discovered_at": "2026-07-21T19:51:58.424378+00:00",
+      "discovery_cycle": 20,
+      "status": "PENDING_FEASIBILITY_REVIEW",
+      "platform": "opire",
+      "source": "claude-builders-bounty/claude-builders-bounty#5 (found via bounty-plaza aggregator mirror)",
+      "bounty_value": "$200 USD (real Stripe escrow via Opire)",
+      "task_summary": "Create n8n workflow JSON + README for weekly GitHub repo activity summary using Claude API. Deliverable: importable .json + README + screenshot.",
+      "acceptance_criteria_count": 8,
+      "competition": {
+        "open_prs_targeting": 6,
+        "issue_comments": 891,
+        "issue_created": "2026-03-27",
+        "high_competition": true
       },
       "fit_assessment": {
-        "bot_capability_match": false,
-        "reason": "Task is a community-growth / Telegram-lead role, not a code bounty. Bot capability matrix targets code bounties only (Python/Go/Rust/TS/etc.).",
-        "recommended_action": "Manual review by operator. If operator wants to pursue, this becomes a community-management gig outside the bot's autonomous scope."
+        "bot_capability_match": true,
+        "reason": "Code bounty — n8n workflow JSON + Claude API integration + README. All within bot capability matrix (JSON config + markdown + API integration).",
+        "differentiation_needed": "6 competing PRs already. Need to differentiate with: (a) better README, (b) Discord + email both supported, (c) FR/EN language support per criteria, (d) actual tested screenshot.",
+        "estimated_effort_hours": 3
       },
-      "alternatives_noted": [
-        {
-          "task": "Regional Lead",
-          "org": "CyberConnect",
-          "ws": "Telegram Growth",
-          "reward": "$200 USDC",
-          "status": "TODO+unassigned",
-          "same_fit_issues": true
-        },
-        {
-          "task": "Avalanche NFT.trades",
-          "org": "Avalanche",
-          "ws": "Dune Tasks",
-          "reward": "$2500 USDC",
-          "status": "IN_PROGRESS+assigned to @Henrystats",
-          "skip_reason": "Already assigned — not claimable"
-        }
+      "recommendation": "Strong candidate. Build in Cycle 21 if operator approves. Differentiation strategy: comprehensive multi-language + multi-channel delivery + thorough README."
+    },
+    {
+      "id": "cbb-2-claude-md-template",
+      "discovered_at": "2026-07-21T19:51:58.424397+00:00",
+      "discovery_cycle": 20,
+      "status": "PENDING_FEASIBILITY_REVIEW",
+      "platform": "opire",
+      "source": "claude-builders-bounty/claude-builders-bounty#2 (found via awesome-agent-bounties aggregator)",
+      "bounty_value": "$75 USD (real Stripe escrow via Opire)",
+      "task_summary": "Create opinionated CLAUDE.md template for Next.js 15 + SQLite SaaS project. Markdown deliverable covering project structure, conventions, DB rules, anti-patterns.",
+      "acceptance_criteria_count": 5,
+      "competition": {
+        "open_prs_targeting": 18,
+        "issue_comments": 1201,
+        "issue_created": "2026-03-27",
+        "high_competition": true
+      },
+      "fit_assessment": {
+        "bot_capability_match": true,
+        "reason": "Pure markdown template — bot's text-generation strength. Next.js + SQLite are well-known stacks in training data.",
+        "differentiation_needed": "18 competing PRs (very high competition). Need truly opinionated content with concrete examples, not generic advice.",
+        "estimated_effort_hours": 2
+      },
+      "recommendation": "Moderate candidate. Lower value ($75) + higher competition (18 PRs). Build only if Cycle 21 has spare capacity after CBB #5."
+    },
+    {
+      "id": "issuehunt-boostnote-2567",
+      "discovered_at": "2026-07-21T19:51:58.424399+00:00",
+      "discovery_cycle": 20,
+      "status": "LOW_PRIORITY",
+      "platform": "issuehunt",
+      "source": "BoostIo/Boostnote#2567",
+      "bounty_value": "$42 USD (real Stripe escrow via IssueHunt)",
+      "task_summary": "Code autocomplete feature for Boostnote (Electron + CodeMirror editor).",
+      "competition": {
+        "open_prs_targeting": "unknown",
+        "issue_comments": "low",
+        "high_competition": false
+      },
+      "fit_assessment": {
+        "bot_capability_match": "UNCERTAIN",
+        "reason": "Need to investigate Boostnote's codebase first — Electron + CodeMirror stack. May require deep editor integration which is hard to do without testing.",
+        "estimated_effort_hours": 5
+      },
+      "recommendation": "Low priority. $42 is below $50 threshold. Skip unless operator wants to expand capability matrix to Electron apps."
+    }
+  ],
+  "sweep_history": [
+    {
+      "cycle": 20,
+      "swept_at": "2026-07-21T19:51:58.424404+00:00",
+      "platforms_swept": [
+        "issuehunt",
+        "dework",
+        "opire"
       ],
-      "scan_summary": {
-        "orgs_scanned": 30,
-        "qualifying_candidates_found": 1,
-        "scan_notes": "Dework's 'popular orgs' list mostly contains DAOs with DONE-only history (no active rewarded tasks). Active USDC/ETH bounties on Dework are scarce — most are either DONE, assigned, or use org-native unverified tokens. The few active ones are community/marketing roles, not code bounties."
+      "results": {
+        "issuehunt_qualifying": 1,
+        "dework_qualifying": 0,
+        "opire_qualifying": 2,
+        "total": 3
       },
-      "rejected_at": "2026-07-21T18:26:12.171527+00:00",
-      "rejection_reason": "Bot capability matrix restricted to code bounties only. Task is a community-growth role (Telegram Growth Lead), not a software engineering task. Cycle 19 added Layer 2 positive filter: Dework scraper now requires code keyword in name/description."
+      "notes": "Dework scraper timed out (90s) but logs show Layer 2 filter actively rejecting community rangers / moderators / non-code tasks. Opire sweep found 8 aggregator-mirror issues pointing to 2 real CBB bounties (#2 and #5). IssueHunt found 1 low-value code bounty ($42 Boostnote)."
     }
   ]
 }
