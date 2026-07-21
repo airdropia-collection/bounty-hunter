@@ -166,3 +166,95 @@ def test_bounty_with_invoice_in_unrelated_context_passes():
     result = s._bounty_from_task(task, "Org", "WS")
     # 'invoice' alone doesn't match our exact phrases like 'submit an invoice'
     assert result is not None, "invoice in feature context should NOT trigger filter"
+
+
+# ──────────────────────────────────────────────────────────────────── #
+# Cycle 19: positive code-keyword requirement (Layer 2)
+# ──────────────────────────────────────────────────────────────────── #
+def test_regional_lead_filtered_no_code_keyword():
+    """Cycle 19 CyberConnect case: 'Regional Lead' has no code keyword → filtered."""
+    s = _make_scraper()
+    task = _make_task(
+        name="Regional Lead",
+        description="Lead our regional community growth efforts.",
+    )
+    assert s._bounty_from_task(task, "CyberConnect", "Telegram Growth") is None
+
+
+def test_growth_lead_filtered_no_code_keyword():
+    """'Growth Lead' without code keywords → filtered (Cycle 19)."""
+    s = _make_scraper()
+    task = _make_task(
+        name="Growth Lead",
+        description="Drive user acquisition and engagement.",
+    )
+    assert s._bounty_from_task(task, "Org", "WS") is None
+
+
+def test_ambassador_filtered():
+    """'Ambassador' role → filtered (Cycle 19 addition to blacklist)."""
+    s = _make_scraper()
+    task = _make_task(name="DAO Ambassador Program")
+    assert s._bounty_from_task(task, "Org", "WS") is None
+
+
+def test_evangelist_filtered():
+    """'Evangelist' role → filtered (Cycle 19 addition to blacklist)."""
+    s = _make_scraper()
+    task = _make_task(name="Developer Evangelist Wanted")
+    assert s._bounty_from_task(task, "Org", "WS") is None
+
+
+def test_vague_title_with_code_keyword_in_desc_passes():
+    """Vague title but description has code keyword → passes (Layer 2 whitelist).
+
+    Example: title='Help needed' but description='Fix the auth bug in login flow'
+    should pass because 'fix' and 'bug' are code keywords.
+    """
+    s = _make_scraper()
+    task = _make_task(
+        name="Help needed",
+        description="Fix the auth bug in the login flow. Submit PR with tests.",
+    )
+    result = s._bounty_from_task(task, "Org", "WS")
+    assert result is not None, "code keywords in description should pass Layer 2"
+
+
+def test_vague_title_no_code_keyword_anywhere_filtered():
+    """Vague title + vague description → filtered (Layer 2 catches it)."""
+    s = _make_scraper()
+    task = _make_task(
+        name="Help needed",
+        description="We need someone to assist with our community efforts.",
+    )
+    assert s._bounty_from_task(task, "Org", "WS") is None
+
+
+def test_code_keyword_in_name_passes():
+    """Code keyword in title alone (no description) → passes."""
+    s = _make_scraper()
+    task = _make_task(name="Implement webhook retry logic")
+    result = s._bounty_from_task(task, "Org", "WS")
+    assert result is not None, "code keyword in name should pass Layer 2"
+
+
+def test_tech_stack_keyword_passes():
+    """Tech-stack keyword (python, rust, react, etc.) → passes."""
+    s = _make_scraper()
+    task = _make_task(
+        name="Add metrics endpoint",
+        description="Expose Prometheus metrics via python FastAPI endpoint.",
+    )
+    result = s._bounty_from_task(task, "Org", "WS")
+    assert result is not None
+
+
+def test_docs_keyword_passes():
+    """'docs' / 'documentation' / 'readme' count as code keywords (technical writing)."""
+    s = _make_scraper()
+    task = _make_task(
+        name="Improve API documentation",
+        description="Update the OpenAPI spec and README examples.",
+    )
+    result = s._bounty_from_task(task, "Org", "WS")
+    assert result is not None, "documentation is a code-adjacent task"

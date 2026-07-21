@@ -1,11 +1,11 @@
 {
   "system_status": "RUNNING",
-  "last_session_sync": "2026-07-21T10:42:40.573553+00:00",
+  "last_session_sync": "2026-07-21T18:26:12.171556+00:00",
   "current_execution_pointer": {
-    "stage": "CYCLE_18_COMPLETE",
-    "last_action": "Cycle 18: 3 forks purged (ai-research/PlantGuide/NeraJob), TentOfTrials audit (unverified), Dework first candidate logged (CyberConnect $200 USDC, manual review)",
+    "stage": "CYCLE_19_COMPLETE",
+    "last_action": "Cycle 19: Dework scraper hardened (Layer 2 code-keyword filter), CyberConnect candidate rejected, 8 PRs verified healthy",
     "current_target_repo": "NONE",
-    "updated_at": "2026-07-21T10:42:40.573550+00:00"
+    "updated_at": "2026-07-21T18:26:12.171554+00:00"
   },
   "active_monitors": {
     "jwallet/spy-spotify": {
@@ -317,7 +317,7 @@
       "id": "dework-cyberconnect-1-tg-growth-lead",
       "discovered_at": "2026-07-21T10:42:40.573541+00:00",
       "discovery_cycle": 18,
-      "status": "PENDING_MANUAL_REVIEW",
+      "status": "REJECTED — non-code task (Cycle 19 code-only mandate)",
       "platform": "dework",
       "org": {
         "name": "CyberConnect",
@@ -371,7 +371,9 @@
         "orgs_scanned": 30,
         "qualifying_candidates_found": 1,
         "scan_notes": "Dework's 'popular orgs' list mostly contains DAOs with DONE-only history (no active rewarded tasks). Active USDC/ETH bounties on Dework are scarce — most are either DONE, assigned, or use org-native unverified tokens. The few active ones are community/marketing roles, not code bounties."
-      }
+      },
+      "rejected_at": "2026-07-21T18:26:12.171527+00:00",
+      "rejection_reason": "Bot capability matrix restricted to code bounties only. Task is a community-growth role (Telegram Growth Lead), not a software engineering task. Cycle 19 added Layer 2 positive filter: Dework scraper now requires code keyword in name/description."
     }
   ]
 }

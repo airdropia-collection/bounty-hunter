@@ -328,11 +328,20 @@ class DeworkScraper(BaseScraper):
                 )
                 return None
 
-        # ── Non-code-task filter ──
+        # ── Non-code-task filter (Cycle 19 hardening) ──
         # Dework hosts many "community moderator" / "telegram growth" /
-        # "social media manager" gigs that aren't code bounties. Skip tasks
-        # whose name strongly indicates non-code work (the description
-        # check is too noisy — many code tasks mention community in passing).
+        # "social media manager" / "regional lead" / "ambassador" gigs that
+        # aren't code bounties. Two-layer filter:
+        #
+        # Layer 1 (blacklist): name strongly indicates non-code work → skip
+        # Layer 2 (whitelist): name AND description must contain at least one
+        #   CODE_KEYWORD (development, bug, feature, refactor, PR, etc.) →
+        #   otherwise skip. This catches vague titles like "Regional Lead"
+        #   that don't trigger Layer 1 but aren't code bounties either.
+        #
+        # Cycle 19 root cause: CyberConnect "Telegram Growth Lead" ($200 USDC)
+        # passed Layer 1 (no exact marker match) but is a community-growth role.
+        # Layer 2 prevents that — "Telegram Growth Lead" has zero code keywords.
         NON_CODE_NAME_MARKERS = (
             "community moderator",
             "telegram growth",
@@ -343,6 +352,19 @@ class DeworkScraper(BaseScraper):
             "marketing specialist",
             "content creator",
             "community outreach",
+            # Cycle 19 additions — caught in CyberConnect scan
+            "regional lead",
+            "growth lead",
+            "ambassador",
+            "community lead",
+            "community growth",
+            "telegram lead",
+            "discord lead",
+            "social lead",
+            "marketing lead",
+            "content lead",
+            "evangelist",
+            "advocate",
         )
         for marker in NON_CODE_NAME_MARKERS:
             if marker in name_lower:
@@ -351,6 +373,38 @@ class DeworkScraper(BaseScraper):
                     task_id[:8], marker,
                 )
                 return None
+
+        # Layer 2 (Cycle 19): positive code-keyword requirement.
+        # At least one code-related keyword must appear in name OR description.
+        # This is the "whitelist" complement to the blacklist above.
+        CODE_KEYWORDS = (
+            # Action verbs
+            "implement", "develop", "build", "fix", "patch", "refactor",
+            "debug", "optimize", "migrate", "integrate", "deploy",
+            "write", "code", "program", "engineer", "architect",
+            # Nouns
+            "bug", "feature", "issue", "pr", "pull request", "commit",
+            "test", "unit test", "coverage", "lint", "ci",
+            "api", "endpoint", "sdk", "library", "package",
+            "contract", "solidity", "smart contract", "audit",
+            # Tech stack signals
+            "python", "typescript", "javascript", "rust", "go ", "golang",
+            "react", "vue", "nextjs", "node", "docker", "kubernetes",
+            "ethereum", "web3", "defi", "nft", "token", "staking",
+            # Task types
+            "documentation", "docs", "readme", "changelog",
+            "scraper", "parser", "crawler",
+            "database", "schema", "migration",
+            "ui", "ux", "frontend", "backend", "fullstack",
+        )
+        combined_text = f"{name_lower} {desc_lower}"
+        has_code_keyword = any(kw in combined_text for kw in CODE_KEYWORDS)
+        if not has_code_keyword:
+            self.log.info(
+                "[dework:%s] skipping — no code keyword in name/description (name: %r)",
+                task_id[:8], name[:80],
+            )
+            return None
 
         # Convert rewards from smallest-unit to human-readable
         rewards = task.get("rewards") or []
