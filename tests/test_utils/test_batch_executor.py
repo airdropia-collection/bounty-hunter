@@ -238,10 +238,16 @@ def test_healing_loop_success_after_heal():
         language="python", command="ruff", exit_code=0,
         stdout="", stderr="", passed=True,
     )
-    # First call: fail; second call: pass
+    # First call: fail; second call: pass.
+    # Also patch append_learned_pattern so the healing-success path does NOT
+    # mutate production docs/agent_memory.json during tests (test isolation).
     with patch("src.utils.batch_executor.run_tests", side_effect=[fail_test, pass_test]):
         with patch("src.utils.batch_executor.run_lint", return_value=pass_lint):
-            results = executor.execute_batch([target])
+            with patch("src.utils.batch_executor.append_learned_pattern") as mock_mem:
+                mock_mem.return_value = {"status": "SUCCESS", "pattern_id": "pattern-test"}
+                results = executor.execute_batch([target])
+                # Sanity: healing path did call memory persistence
+                assert mock_mem.called, "append_learned_pattern should fire on AUTONOMOUS_HEALED"
     assert results[0].loop_state == LoopState.AUTONOMOUS_HEALED
     assert results[0].cycles_consumed == 1
 
@@ -264,9 +270,14 @@ def test_healing_loop_fail_after_max_cycles():
         language="python", command="ruff", exit_code=1,
         stdout="error", stderr="F401 unused import", passed=False,
     )
+    # Defensive: patch append_learned_pattern so a future change to the
+    # healing-fail path can never accidentally mutate production memory.
     with patch("src.utils.batch_executor.run_tests", return_value=fail_test):
         with patch("src.utils.batch_executor.run_lint", return_value=fail_lint):
-            results = executor.execute_batch([target])
+            with patch("src.utils.batch_executor.append_learned_pattern") as mock_mem:
+                results = executor.execute_batch([target])
+                # Healing failed — memory persistence must NOT have fired
+                assert not mock_mem.called, "append_learned_pattern must not fire on FAILED"
     assert results[0].loop_state == LoopState.FAILED
     assert results[0].cycles_consumed == 2
     assert results[0].diagnostic_exception is not None
