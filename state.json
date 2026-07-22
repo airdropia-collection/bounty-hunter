@@ -1,11 +1,11 @@
 {
   "system_status": "RUNNING",
-  "last_session_sync": "2026-07-22T18:04:12.240045+00:00",
+  "last_session_sync": "2026-07-22T19:07:11.269788+00:00",
   "current_execution_pointer": {
-    "stage": "CYCLE_22_COMPLETE",
-    "last_action": "Cycle 22: PR #128 refresh-pushed (mergeable=True confirmed), Telegram dashboard ping sent (msg_id 251), PR #535 + #3498 audited (clean, no missed signals)",
+    "stage": "CYCLE_23_COMPLETE",
+    "last_action": "Cycle 23: MIN_PAYOUT_USD threshold lowered $500→$1 (operator directive: success rate > bounty size at $0 account). Pre-qualified 5 IssueHunt candidates — all dead/hostile. No new PR built.",
     "current_target_repo": "NONE",
-    "updated_at": "2026-07-22T18:04:12.240030+00:00"
+    "updated_at": "2026-07-22T19:07:11.269776+00:00"
   },
   "active_monitors": {
     "jwallet/spy-spotify": {
@@ -309,20 +309,12 @@
     }
   ],
   "last_pr_health_audit": {
-    "audit_at": "2026-07-22T18:04:12.240046+00:00",
-    "total_prs_audited": 9,
-    "mergeable_clean": 8,
-    "mergeable_unstable": 1,
-    "mergeable_true_count": 9,
-    "reviews_detected": 0,
-    "comments_detected": 0,
-    "maintainer_signals_missed": 0,
-    "pr_128_refresh_pushed": true,
-    "pr_128_refresh_commit": "3e17a8c (empty commit, force-pushed to fork)",
-    "telegram_dashboard_ping_sent": true,
-    "telegram_message_id": 251,
-    "telegram_channel": "Bounty Hunter",
-    "auditor": "GLM Engine - Cycle 22"
+    "audit_at": "2026-07-22T19:07:11.269793+00:00",
+    "cycle": 23,
+    "threshold_change": "MIN_PAYOUT_USD: $500 → $1 (config.py + .env.example)",
+    "issuehunt_pool_status": "DEAD — 0 actionable candidates after pre-qualification",
+    "new_prs_built": 0,
+    "auditor": "GLM Engine - Cycle 23"
   },
   "dework_candidates": [
     {
@@ -411,6 +403,28 @@
         "total": 3
       },
       "notes": "Dework scraper timed out (90s) but logs show Layer 2 filter actively rejecting community rangers / moderators / non-code tasks. Opire sweep found 8 aggregator-mirror issues pointing to 2 real CBB bounties (#2 and #5). IssueHunt found 1 low-value code bounty ($42 Boostnote)."
+    },
+    {
+      "cycle": 23,
+      "swept_at": "2026-07-22T19:07:11.269790+00:00",
+      "platforms_swept": [
+        "issuehunt"
+      ],
+      "results": {
+        "candidates_found": 7,
+        "candidates_with_active_repo": 5,
+        "candidates_with_open_parent_issue": 1,
+        "candidates_clean": 0,
+        "rejected_reasons": {
+          "boostnote_2567": "Repo archived 5 years ago (BoostIO/BoostNote-Legacy). Last commit Sep 2021. $42 escrow frozen — PR cannot merge.",
+          "apache_superset_3821": "Issue CLOSED 4 years ago (2022-03-16). Stale escrow.",
+          "prismarinejs_420": "Issue CLOSED.",
+          "faf_client_3133": "Issue CLOSED.",
+          "zardoy_space_squid_5": "Maintainer explicitly hostile to 'easy-money bounty hunters' (issue body). 6 PRs already MERGED on this feature. Pattern-010 hostile-maintainer risk."
+        },
+        "total": 0
+      },
+      "notes": "IssueHunt's current pool is effectively dead for our profile. Threshold lowered but no actionable candidates exist right now. Pre-qualification (active repo + open issue + non-hostile maintainer + real-asset escrow) filters out everything."
     }
   ]
 }

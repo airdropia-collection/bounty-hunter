@@ -42,8 +42,13 @@ class Config:
         self.WALLET_ADDRESS: str = os.getenv("WALLET_ADDRESS", "")
 
         # === Scraper settings ===
-        self.MAX_BOUNTIES_PER_RUN: int = int(os.getenv("MAX_BOUNTIES_PER_RUN", "5"))
-        self.MIN_PAYOUT_USD: int = int(os.getenv("MIN_PAYOUT_USD", "500"))
+        # Cycle 23 directive: lower floor from $500 to $1. Bot's account is at $0,
+        # so success rate (CV building) matters more than bounty size. Lower-value
+        # bounties also tend to have less competition. Maintainer trust builds
+        # through merged-PR history, not bounty size.
+        # Pre-qualification still applies (real-asset verified, parent issue open,
+        # maintainer not dormant, code-capability match).
+        self.MIN_PAYOUT_USD: int = int(os.getenv("MIN_PAYOUT_USD", "1"))
         self.MAX_CONTEST_DAYS: int = int(os.getenv("MAX_CONTEST_DAYS", "30"))
 
         # === AI settings ===
